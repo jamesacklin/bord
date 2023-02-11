@@ -1,9 +1,9 @@
 :~  title+'bord'
     info+'Check the onboarding status of your group'
     color+0x2e.4347
-    glob-http+['https://bootstrap.urbit.org/glob-0v5.hurm4.ejod5.ngg9h.iub9i.n1j7o.glob' 0v5.hurm4.ejod5.ngg9h.iub9i.n1j7o]
+    glob-http+['https://rilfun-lidlen.nyc3.digitaloceanspaces.com/rilfun-lidlen%2Fglob-0v9uqj5.8kpa3.uke5e.rku93.s1qja.glob' 0v9uqj5.8kpa3.uke5e.rku93.s1qja]
     base+'bord'
     version+[0 0 1]
-    website+'https://github.com'
+    website+'https://nerveharp.net/'
     license+'MIT'
 ==
