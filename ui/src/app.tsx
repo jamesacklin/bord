@@ -88,15 +88,16 @@ export function App() {
         <textarea
           id="input"
           rows={10}
+          spellCheck={false}
           className="block p-2 bg-gray-50 rounded-lg border text-base  border-gray-400 focus:ring-blue-500 focus:border-blue-500 font-mono text-gray-900 w-full"
           onChange={processList}
         />
 
-        {fleet.length > 0 && matches.length ? (
+        {fleet.length > 0 ? (
           <p className="font-semibold mt-8 py-2 px-4 text-center text-base bg-blue-100 rounded-lg text-blue-800">
-            {matches.length} ships from the list (
-            {Math.round((matches.length / fleet.length) * 100)}%) are in the
-            group ({fleet.length} total)
+            {matches.length} ships from the list are in the group (
+            {fleet.length} total, or{" "}
+            {Math.round((matches.length / fleet.length) * 100)}%)
           </p>
         ) : null}
       </div>
