@@ -1,44 +1,51 @@
 import React, { useEffect, useState } from "react";
 import Urbit from "@urbit/http-api";
-import { AppTile } from "./components/AppTile";
 import _ from "lodash";
 
 const api = new Urbit("", "", "bord");
 api.ship = window.ship;
 
 export function App() {
-  const [groups, setGroups] = useState<any>({});
+  const [fleet, setFleet] = useState<any[]>([]);
+  const [input, setInput] = useState<any[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
 
   useEffect(() => {
-    async function init() {
-      const groups = await api.scry({
+    async function getFleet() {
+      const group = await api.scry({
         app: "groups",
-        path: "/groups/light",
+        path: "/groups/~nibset-napwyn/tlon",
       });
-      setGroups(groups);
+      setFleet(Object.keys(group.fleet));
     }
 
-    init();
+    getFleet();
   }, []);
 
+  const processList = (e: any) => {
+    const splitLines = (value: string) => value.split(/\r?\n/);
+    const inputArray: React.SetStateAction<any[]> = [];
+    splitLines(e.target.value).map((line) => {
+      inputArray.push(line);
+    });
+    setInput(inputArray);
+  };
+
   useEffect(() => {
-    console.log(groups);
-  }, [groups]);
+    const matches = _.intersection(input, fleet);
+    setMatches(matches);
+  }, [input, fleet]);
 
   return (
     <main className="">
       <div className="">
-        {groups &&
-          _.map(groups, (group) => {
-            return (
-              <div className="mb-4">
-                <h2 className="text-lg font-bold">{group.meta.title}</h2>
-                {Object.keys(group.fleet).map((ship) => {
-                  return <div>{ship}</div>;
-                })}
-              </div>
-            );
-          })}
+        {matches.length &&
+          fleet.length &&
+          `${Math.round(
+            (matches.length / fleet.length) * 100
+          )}% of the list is in the group`}
+        <br />
+        <textarea onChange={processList} />
       </div>
     </main>
   );
