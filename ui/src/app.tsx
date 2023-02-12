@@ -1,6 +1,26 @@
 import React, { useEffect, useState } from "react";
 import Urbit from "@urbit/http-api";
 import _ from "lodash";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
+const chartOpts = {
+  responsive: true,
+  plugins: {
+    legend: {
+      position: "bottom" as const,
+    },
+  },
+};
 
 const api = new Urbit("", "", "bord");
 api.ship = window.ship;
@@ -77,9 +97,17 @@ export function App() {
     setMatches(matches);
   }, [input, fleet, selectedGroup]);
 
+  // cumulatively add each item in an array to the next
+  const cumulativeSum = (arr: any) => {
+    return arr.reduce(
+      (acc: any, val: any) => [...acc, (acc[acc.length - 1] || 0) + val],
+      []
+    );
+  };
+
   return (
     <main className="flex items-start justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-lg px-3 flex-col space-y-8 py-8">
+      <div className="w-full max-w-2xl px-3 flex-col space-y-8 py-8">
         <header className="text-center">
           <h1 className="text-2xl font-semibold mb-2">bord</h1>
           <p className="text-base font-semibold">
@@ -108,19 +136,34 @@ export function App() {
           <>
             <div className="bg-white rounded-lg p-4 overflow-y-auto">
               <h2 className="text-xl font-semibold mb-4">
-                Group growth over time
+                Current members by Urbit date joined (
+                {Object.keys(fleet).length} total)
               </h2>
-              {sortedFleet.length > 0
-                ? sortedFleet.map((ship: any) => (
-                    <pre className="font-mono" key={ship.ship}>
-                      {ship.ship}: {ship.joined}
-                    </pre>
-                  ))
-                : null}
+              <Bar
+                options={chartOpts}
+                data={{
+                  labels: _.uniq(_.map(sortedFleet, "joined")),
+                  datasets: [
+                    {
+                      label: "Ship count",
+                      data: cumulativeSum(
+                        _.map(
+                          _.groupBy(sortedFleet, "joined"),
+                          (cohort) => cohort.length
+                        )
+                      ),
+                      borderColor: "rgb(0,0,0,1)",
+                      backgroundColor: "rgba(0, 0, 0, 1)",
+                    },
+                  ],
+                }}
+              />
             </div>
 
             <div className="bg-white rounded-lg p-4">
-              <h2 className="text-xl font-semibold mb-4">Compare to list</h2>
+              <h2 className="text-xl font-semibold mb-4">
+                Compare member ships to list
+              </h2>
 
               <label className="font-semibold mb-2 block text-base">
                 Paste a list of ships, one ship per line
@@ -135,7 +178,6 @@ export function App() {
 
               <p className="font-semibold mt-8 py-2 px-4 text-center text-base bg-blue-100 rounded-lg text-blue-800">
                 {matches.length} ships from the list are in the group (
-                {Object.keys(fleet).length} total, or{" "}
                 {Math.round((matches.length / Object.keys(fleet).length) * 100)}
                 %)
               </p>
