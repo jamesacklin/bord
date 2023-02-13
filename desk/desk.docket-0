@@ -1,9 +1,9 @@
 :~  title+'bord'
     info+'Check the onboarding status of your group'
     color+0xff.ffff
-    glob-http+['https://rilfun-lidlen.nyc3.digitaloceanspaces.com/rilfun-lidlen/glob-0v9uqj5.8kpa3.uke5e.rku93.s1qja.glob' 0v9uqj5.8kpa3.uke5e.rku93.s1qja]
+    glob-http+['https://rilfun-lidlen.nyc3.digitaloceanspaces.com/rilfun-lidlen%/glob-0v1.c9fai.nd6mh.4v68f.cmbk0.thiio.glob' 0v1.c9fai.nd6mh.4v68f.cmbk0.thiio]
     base+'bord'
-    version+[0 0 1]
+    version+[0 0 2]
     website+'https://nerveharp.net/'
     license+'MIT'
 ==
