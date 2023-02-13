@@ -3,6 +3,7 @@
     color+0xff.ffff
     glob-http+['https://rilfun-lidlen.nyc3.digitaloceanspaces.com/rilfun-lidlen/glob-0v1.c9fai.nd6mh.4v68f.cmbk0.thiio.glob' 0v1.c9fai.nd6mh.4v68f.cmbk0.thiio]
     base+'bord'
+    image+'https://rilfun-lidlen.nyc3.digitaloceanspaces.com/rilfun-lidlen/bord-tile.png'
     version+[0 0 2]
     website+'https://nerveharp.net/'
     license+'MIT'
