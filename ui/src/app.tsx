@@ -3,19 +3,54 @@ import Urbit from "@urbit/http-api";
 import _ from "lodash";
 import {
   Chart as ChartJS,
-  CategoryScale,
   LinearScale,
-  BarElement,
+  TimeScale,
+  LineElement,
+  PointElement,
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
+import zoomPlugin from "chartjs-plugin-zoom";
+import "chartjs-adapter-date-fns";
+import { enUS } from "date-fns/locale";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+ChartJS.register(
+  TimeScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  zoomPlugin
+);
 
 const chartOpts = {
   responsive: true,
+  adapters: {
+    date: {
+      locale: enUS,
+    },
+  },
+  scales: {
+    x: {
+      type: "time",
+      min: "2021-01-01 00:00:00",
+    },
+  },
   plugins: {
+    zoom: {
+      pan: {
+        enabled: true,
+        mode: "x",
+      },
+      zoom: {
+        wheel: {
+          enabled: true,
+        },
+        mode: "x",
+      },
+    },
     legend: {
       position: "bottom" as const,
     },
@@ -68,12 +103,17 @@ export function App() {
     getFleet();
   }, [selectedGroup]);
 
-  // sort the fleet by join date
   useEffect(() => {
-    if (!fleet) return;
+    if (_.isEmpty(fleet)) return;
+
     const sortedFleet = _(fleet)
       .map(function (v, k) {
-        return _.merge({}, v, { ship: k });
+        // TODO: if any of the dates are the default date, reassign their
+        // joined date to the date of the next unique date in the fleet
+        if (v.joined === 946684800000) {
+          console.log("default date");
+        }
+        return _.merge({}, v, { ship: k, joined: new Date(v.joined) });
       })
       .sortBy("joined")
       .value();
@@ -103,6 +143,18 @@ export function App() {
       (acc: any, val: any) => [...acc, (acc[acc.length - 1] || 0) + val],
       []
     );
+  };
+
+  // deduplicate an array of date objects
+  const dedupeDates = (arr: any) => {
+    return arr.reduce((acc: any, current: any) => {
+      const x = acc.find((item: any) => item.getTime() === current.getTime());
+      if (!x) {
+        return acc.concat([current]);
+      } else {
+        return acc;
+      }
+    }, []);
   };
 
   return (
@@ -136,13 +188,15 @@ export function App() {
           <>
             <div className="bg-white rounded-lg p-4 overflow-y-auto">
               <h2 className="text-xl font-semibold mb-4">
-                Current members by Urbit date joined (
-                {Object.keys(fleet).length} total)
+                Current members by date joined ({Object.keys(fleet).length}{" "}
+                total)
               </h2>
-              <Bar
+
+              <Line
+                /* @ts-expect-error */
                 options={chartOpts}
                 data={{
-                  labels: _.uniq(_.map(sortedFleet, "joined")),
+                  labels: dedupeDates(_.map(sortedFleet, "joined")),
                   datasets: [
                     {
                       label: "Ship count",
