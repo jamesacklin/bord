@@ -130,7 +130,6 @@ export function App() {
 
     _.map(sortedFleet, (ship, i) => {
       if (ship.joined.toString() === defaultDate.toString()) {
-        console.log("found");
         sortedFleet[i].joined = nextUniqueDate;
       }
     });
@@ -150,7 +149,7 @@ export function App() {
 
   // compare the fleet to the input list
   useEffect(() => {
-    const matches = _.intersection(input, fleet);
+    const matches = _.intersection(input, _.map(sortedFleet, "ship"));
     setMatches(matches);
   }, [input, fleet, selectedGroup]);
 
