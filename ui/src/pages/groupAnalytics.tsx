@@ -84,6 +84,7 @@ export function GroupAnalytics() {
       <div>
         {_.some(notes, { status: "loading" }) ? "Loading notes..." : ""}
       </div>
+      <div className="mt-4">{allAuthors.length + 1} unique authors</div>
       <div className={cn({ "text-gray-300": isAnyPending })}>
         {_.map(allAuthors, (author) => (
           <div>{author}</div>
