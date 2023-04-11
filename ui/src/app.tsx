@@ -1,11 +1,7 @@
-import React, { useEffect, useState } from "react";
-import Urbit from "@urbit/http-api";
+import React from "react";
 import _ from "lodash";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Members } from "./members";
-
-const api = new Urbit("", "", "bord");
-api.ship = window.ship;
+import { Members } from "./pages/members";
 
 export function App() {
   return (

@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import Urbit from "@urbit/http-api";
+import React, { useEffect, useState, useContext } from "react";
 import _ from "lodash";
 import {
   Chart as ChartJS,
@@ -13,6 +12,7 @@ import {
 import { Line } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 import { enUS } from "date-fns/locale";
+import { useUrbit } from "../logic/useUrbit";
 
 ChartJS.register(
   TimeScale,
@@ -45,9 +45,6 @@ const chartOpts = {
   },
 };
 
-const api = new Urbit("", "", "bord");
-api.ship = window.ship;
-
 // deduplicate an array of date objects
 const dedupeDates = (arr: any) => {
   return arr.reduce((acc: any, current: any) => {
@@ -75,6 +72,7 @@ export function Members() {
   const [input, setInput] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const api = useUrbit();
 
   // get the groups
   useEffect(() => {
