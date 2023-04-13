@@ -3,6 +3,7 @@ import cn from "classnames";
 import _ from "lodash";
 import { useParams } from "react-router-dom";
 import { isWithinInterval, subDays } from "date-fns";
+import { CSVLink, CSVDownload } from "react-csv";
 import {
   useChannels,
   useWrits,
@@ -21,6 +22,18 @@ export function GroupAnalytics() {
     )
   );
 
+  const curios = useCurios(
+    _.keys(groupChannels?.data).filter((channel: any) =>
+      channel.includes("heap")
+    )
+  );
+
+  const notes = useNotes(
+    _.keys(groupChannels?.data).filter((channel: any) =>
+      channel.includes("diary")
+    )
+  );
+
   const memos = _.flatten(
     _.map(writs, (writ: any) => {
       return _.map(writ.data, (writ: any) => {
@@ -29,24 +42,12 @@ export function GroupAnalytics() {
     })
   );
 
-  const curios = useCurios(
-    _.keys(groupChannels?.data).filter((channel: any) =>
-      channel.includes("heap")
-    )
-  );
-
   const hearts = _.flatten(
     _.map(curios, (curio: any) => {
       return _.map(curio.data, (curio: any) => {
         return _.merge({}, curio.heart, { sent: new Date(curio.heart.sent) });
       });
     })
-  );
-
-  const notes = useNotes(
-    _.keys(groupChannels?.data).filter((channel: any) =>
-      channel.includes("diary")
-    )
   );
 
   const outlines = _.flatten(
@@ -194,6 +195,10 @@ export function GroupAnalytics() {
             <li>60d: {posts.totalPrevPeriod} posts</li>
             <li>90d: {posts.totalPastPeriod} posts</li>
           </ul>
+        </div>
+
+        <div className="mb-4">
+          <CSVLink data={authorsWithCounts}>Download CSV</CSVLink>
         </div>
 
         <table className="w-full text-base">
