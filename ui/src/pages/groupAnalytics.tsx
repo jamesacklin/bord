@@ -412,7 +412,7 @@ export function GroupAnalytics() {
             </tbody>
           </table>
           {!hasScrolled && isOverflow && (
-            <div className="absolute inset-x-2/4 w-32 bg-blue-50 text-center text-sm font-bold text-blue-500 rounded-xl p-2 bottom-4 -translate-x-16">
+            <div className="absolute inset-x-2/4 w-32 bg-blue-50 text-center text-sm font-bold text-blue-500 rounded-xl p-2 bottom-4 -translate-x-16 shadow-md shadow-blue-200/50">
               ↓ Scroll for more
             </div>
           )}
