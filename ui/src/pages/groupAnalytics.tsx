@@ -1,19 +1,76 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useRef } from "react";
 import cn from "classnames";
 import _ from "lodash";
-import { useParams } from "react-router-dom";
 import { isWithinInterval, subDays } from "date-fns";
-import { CSVLink, CSVDownload } from "react-csv";
+import { CSVLink } from "react-csv";
 import {
   useChannels,
   useWrits,
   useCurios,
   useNotes,
 } from "../logic/useContent";
+import { useIsOverflow } from "../logic/useIsOverflow";
 import { Spinner } from "../components/spinner";
 
+function Card({
+  children,
+  className,
+  loading = false,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  loading?: boolean;
+}) {
+  return (
+    <div className={cn("card relative", className)}>
+      <div className={cn(loading && "opacity-25")}>{children}</div>
+      {loading && (
+        <div className="absolute inset-y-2/4 inset-x-2/4 -translate-x-4 -translate-y-4 ">
+          <Spinner />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryRow({
+  glyph,
+  value,
+  label,
+  accent,
+  className,
+}: {
+  glyph: string;
+  value: number;
+  label: string;
+  accent: "orange" | "blue" | "green" | "red";
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-row items-center p-1 space-x-2", className)}>
+      <div
+        className={cn(
+          "h-6 w-6 rounded font-lg font-bold flex items-center justify-center",
+          accent === "orange" && "bg-orange-50 text-orange-500",
+          accent === "blue" && "bg-blue-50 text-blue-500",
+          accent === "green" && "bg-green-50 text-green-500",
+          accent === "red" && "bg-red-50 text-red-500"
+        )}
+      >
+        {glyph}
+      </div>
+      <div className="font-semibold font-sm">
+        {value} {label}
+      </div>
+    </div>
+  );
+}
+
 export function GroupAnalytics() {
-  const { ship, group } = useParams();
+  const ref = useRef<HTMLDivElement>(null);
+  const isOverflow = useIsOverflow(ref);
+  const [hasScrolled, setHasScrolled] = useState(false);
+
   const groupChannels = useChannels();
 
   const writs = useWrits(
@@ -155,112 +212,212 @@ export function GroupAnalytics() {
     _.some(notes, { status: "loading" });
 
   return (
-    <div className="mx-auto text-center w-full p-4">
-      <h1 className="mb-4">
-        {ship}/{group}
-        <span className="block text-sm text-gray-400">
-          Join all channels in this group for optimal results.
-        </span>
-      </h1>
-
-      <div className={cn("relative pb-4", isAnyPending ? "opacity-50" : "")}>
-        {isAnyPending && (
-          <div className="absolute top-32 inset-x-2/4 -translate-x-4 -translate-y-4 ">
-            <Spinner />
-          </div>
-        )}
-
-        <div className="mb-4 flex flex-row justify-between items-center">
-          <ul className="w-4/12">
-            <li>Current Period</li>
-            <li>{posts.new} posts from new users</li>
-            <li>{posts.expanded} posts from expanded users</li>
-            <li>{posts.resurrected} posts from resurrected users</li>
-            <li className="mb-2">{posts.retained} posts from retained users</li>
-            <li>
-              {_.filter(authorsWithCounts, "isContracted").length} contracted
-              users
-            </li>
-            <li>
-              {_.filter(authorsWithCounts, "isChurned").length} churned users
-            </li>
-          </ul>
-          <div className="w-4/12 text-2xl">
-            Value:{" "}
+    <div className="p-4">
+      <div className="card w-full">
+        <h1 className="text-lg font-bold mb-2">Group Insights</h1>
+        <p className="text-gray-600">
+          Get a sense of how your group is evolving over time. Learn membership
+          access patterns. Observe your group as a whole.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
+        <Card loading={isAnyPending}>
+          <h2 className="text-lg font-bold mb-2">Total Group Value</h2>
+          <p className="text-gray-600 leading-5">
+            The sum of all posts from new, retained, expanded, and resurrected
+            users over the past 30 days.
+          </p>
+          <div className="text-2xl rounded font-semibold text-blue-500 bg-blue-50 text-center py-2 mt-8">
             {posts.retained + posts.new + posts.expanded + posts.resurrected}
           </div>
-          <ul className="w-4/12">
-            <li>Net Post Totals</li>
-            <li>30d: {posts.totalPeriod} posts</li>
-            <li>60d: {posts.totalPrevPeriod} posts</li>
-            <li>90d: {posts.totalPastPeriod} posts</li>
+        </Card>
+        <Card loading={isAnyPending}>
+          <h2 className="text-lg font-bold mb-2">Summary</h2>
+          <p className="text-gray-600">30-day overview of change</p>
+          <ul className="mt-6">
+            <li>
+              <SummaryRow
+                glyph="↑"
+                value={posts.new}
+                label="new user posts"
+                accent="green"
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="↑"
+                value={posts.expanded}
+                label="expanded user posts"
+                accent="green"
+              />
+            </li>
+            <li className="mb-2">
+              <SummaryRow
+                glyph="↑"
+                value={posts.resurrected}
+                label="resurrected user posts"
+                accent="green"
+              />
+            </li>
+            <li className="mb-2">
+              <SummaryRow
+                glyph="~"
+                value={posts.retained}
+                label="retained user posts"
+                accent="orange"
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="↓"
+                value={posts.contracted}
+                label="contracted user posts"
+                accent="red"
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="↓"
+                value={_.filter(authorsWithCounts, "isChurned").length}
+                label="churned users"
+                accent="red"
+              />
+            </li>
           </ul>
-        </div>
-
-        <div className="mb-4">
-          <CSVLink data={authorsWithCounts}>Download CSV</CSVLink>
-        </div>
-
-        <table className="w-full text-base">
-          <thead>
-            <tr>
-              <th className="p-2 border-b border-black text-left w-6/12">
-                Author
-              </th>
-              <th className="p-2 border-b border-black text-left w-3/12">
-                Quality
-              </th>
-              <th className="p-2 border-b border-black text-right w-1/12">
-                Posts (-30)
-              </th>
-              <th className="p-2 border-b border-black text-right w-1/12">
-                Posts (-60)
-              </th>
-              <th className="p-2 border-b border-black text-right w-1/12">
-                Posts (-90)
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {authorsWithCounts.map((author) => {
-              return (
-                <tr key={author.ship} className="even:bg-gray-100">
-                  <td className="p-2 text-left w-6/12 font-mono">
-                    {author.ship}
-                  </td>
-                  <td className="p-2 text-left w-3/12">
-                    {author.isNew && <span className="text-blue-500">New</span>}
-                    {author.isRetained && (
-                      <span className="text-green-500">Retained</span>
-                    )}
-                    {author.isExpanded && (
-                      <span className="text-green-500">Expanded</span>
-                    )}
-                    {author.isContracted && (
-                      <span className="text-orange-500">Contracted</span>
-                    )}
-                    {author.isResurrected && (
-                      <span className="text-purple-500">Resurrected</span>
-                    )}
-                    {author.isChurned && (
-                      <span className="text-red-500">Churned</span>
-                    )}
-                  </td>
-                  <td className="p-2 text-right w-1/12 font-mono">
-                    {author.cur}
-                  </td>
-                  <td className="p-2 text-right w-1/12 font-mono">
-                    {author.prev}
-                  </td>
-                  <td className="p-2 text-right w-1/12 font-mono">
-                    {author.past}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        </Card>
+        <Card loading={isAnyPending}>
+          <h2 className="text-lg font-bold mb-2">Net Post Totals</h2>
+          <p className="text-gray-600 leading-5">
+            Total posts by all members over the past 30, 60, and 90 days.
+          </p>
+          <ul className="mt-4">
+            <li>
+              <SummaryRow
+                glyph="30"
+                className="text-lg"
+                value={posts.totalPeriod}
+                label="posts"
+                accent={
+                  posts.totalPeriod > posts.totalPrevPeriod ? "green" : "red"
+                }
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="60"
+                className="text-lg"
+                value={posts.totalPrevPeriod}
+                label="posts"
+                accent={
+                  posts.totalPrevPeriod > posts.totalPastPeriod
+                    ? "green"
+                    : "red"
+                }
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="90"
+                className="text-lg"
+                value={posts.totalPastPeriod}
+                label="posts"
+                accent="blue"
+              />
+            </li>
+          </ul>
+        </Card>
       </div>
+
+      <Card loading={isAnyPending}>
+        <div className="flex space-x-2 items-baseline justify-between">
+          <div>
+            <h2 className="text-lg font-bold mb-2">Member Stats</h2>
+            <p className="text-gray-600 leading-5">
+              Post counts for all members over the last 30, 60, and 90 days.
+            </p>
+          </div>
+          <div>
+            <CSVLink
+              className="small-button whitespace-nowrap"
+              data={authorsWithCounts}
+            >
+              Download CSV
+            </CSVLink>
+          </div>
+        </div>
+        <div
+          className="max-h-96 overflow-auto mt-6 relative"
+          ref={ref}
+          onScroll={() => setHasScrolled(true)}
+        >
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="p-2 font-semibold text-gray-400 text-left w-6/12">
+                  Author
+                </th>
+                <th className="p-2 font-semibold text-gray-400 text-left w-3/12">
+                  Quality
+                </th>
+                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
+                  Posts (30d)
+                </th>
+                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
+                  Posts (60d)
+                </th>
+                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
+                  Posts (90d)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {authorsWithCounts.map((author) => {
+                return (
+                  <tr key={author.ship} className="even:bg-gray-50">
+                    <td className="p-2 text-left w-6/12 font-semibold">
+                      {author.ship}
+                    </td>
+                    <td className="p-2 text-left w-3/12 font-semibold">
+                      {author.isNew && (
+                        <span className="text-blue-500">New</span>
+                      )}
+                      {author.isRetained && (
+                        <span className="text-green-500">Retained</span>
+                      )}
+                      {author.isExpanded && (
+                        <span className="text-green-500">Expanded</span>
+                      )}
+                      {author.isContracted && (
+                        <span className="text-orange-500">Contracted</span>
+                      )}
+                      {author.isResurrected && (
+                        <span className="text-purple-500">Resurrected</span>
+                      )}
+                      {author.isChurned && (
+                        <span className="text-red-500">Churned</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right w-1/12 font-semibold">
+                      {author.cur}
+                    </td>
+                    <td className="p-2 text-right w-1/12 font-semibold">
+                      {author.prev}
+                    </td>
+                    <td className="p-2 text-right w-1/12 font-semibold">
+                      {author.past}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {!hasScrolled && isOverflow && (
+            <div className="absolute inset-x-2/4 w-32 bg-blue-50 text-center text-sm font-bold text-blue-500 rounded-xl p-2 bottom-4 -translate-x-16">
+              ↓ Scroll for more
+            </div>
+          )}
+        </div>
+      </Card>
     </div>
   );
 }
