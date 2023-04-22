@@ -11,6 +11,7 @@ import {
 } from "../logic/useContent";
 import { useIsOverflow } from "../logic/useIsOverflow";
 import { Spinner } from "../components/spinner";
+import { GroupNav } from "../components/GroupNav";
 
 function Card({
   children,
@@ -213,6 +214,9 @@ export function GroupAnalytics() {
 
   return (
     <div className="p-4">
+      <div className="mb-4">
+        <GroupNav />
+      </div>
       <div className="card w-full">
         <h1 className="text-lg font-bold mb-2">Group Insights</h1>
         <p className="text-gray-600">
