@@ -1,8 +1,8 @@
 # bord
 
-Basic group member analytics for [Tlon Groups](https://tlon.io/landscape).
+Basic group activity analytics for [Tlon Groups](https://tlon.io/landscape).
 
-![](assets/Screenshot%202023-02-13%20at%201.51.29%20PM.png)
+![](assets/2023.4.22..17.29.27-Screenshot%202023-04-22%20at%201.29.19%20PM.png)
 
 ## Installing
 
