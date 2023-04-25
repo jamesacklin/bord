@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import cn from "classnames";
 import _ from "lodash";
-import { isWithinInterval, subDays } from "date-fns";
+import { isWithinInterval, subDays, format } from "date-fns";
 import { CSVLink } from "react-csv";
 import {
   useChannels,
@@ -12,6 +12,73 @@ import {
 import { useIsOverflow } from "../logic/useIsOverflow";
 import { Spinner } from "../components/spinner";
 import { GroupNav } from "../components/GroupNav";
+import {
+  Chart as ChartJS,
+  LinearScale,
+  CategoryScale,
+  TimeScale,
+  Tooltip,
+  Legend,
+  LineElement,
+  Filler,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+import "chartjs-adapter-date-fns";
+import { enUS } from "date-fns/locale";
+
+ChartJS.register(
+  CategoryScale,
+  TimeScale,
+  LinearScale,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler
+);
+
+const chartOpts = {
+  responsive: true,
+  adapters: {
+    date: {
+      locale: enUS,
+    },
+  },
+  scales: {
+    x: {
+      stacked: true,
+      type: "time",
+      time: {
+        unit: "week",
+      },
+    },
+    y: {
+      stacked: true,
+      type: "linear",
+    },
+  },
+  plugins: {
+    legend: {
+      position: "bottom" as const,
+    },
+  },
+};
+
+const cumulativeSum = (arr: any) => {
+  return arr.reduce(
+    (acc: any, val: any) => [...acc, (acc[acc.length - 1] || 0) + val],
+    []
+  );
+};
+
+const prettyWeekStart = (year: number, week: number) => {
+  const d = new Date(year, 0, 1);
+  const dayNum = (d.getDay() + 6) % 7;
+  const firstMonday = d.setDate(d.getDate() - dayNum + 1);
+  const weekStart = new Date(
+    firstMonday + (week - 1) * 7 * 24 * 60 * 60 * 1000
+  );
+  return format(weekStart, "yyyy-MM-dd");
+};
 
 function Card({
   children,
@@ -95,7 +162,9 @@ export function GroupAnalytics() {
   const memos = _.flatten(
     _.map(writs, (writ: any) => {
       return _.map(writ.data, (writ: any) => {
-        return _.merge({}, writ.memo, { sent: new Date(writ.memo.sent) });
+        return _.merge({}, writ.memo, {
+          sent: new Date(parseInt(writ.memo.sent.toString().padEnd(13, "0"))),
+        });
       });
     })
   );
@@ -103,7 +172,9 @@ export function GroupAnalytics() {
   const hearts = _.flatten(
     _.map(curios, (curio: any) => {
       return _.map(curio.data, (curio: any) => {
-        return _.merge({}, curio.heart, { sent: new Date(curio.heart.sent) });
+        return _.merge({}, curio.heart, {
+          sent: new Date(parseInt(curio.heart.sent.toString().padEnd(13, "0"))),
+        });
       });
     })
   );
@@ -111,7 +182,9 @@ export function GroupAnalytics() {
   const outlines = _.flatten(
     _.map(notes, (note: any) => {
       return _.map(note.data, (note: any) => {
-        return _.merge({}, note, { sent: new Date(note.sent) });
+        return _.merge({}, note, {
+          sent: new Date(parseInt(note.sent.toString().padEnd(13, "0"))),
+        });
       });
     })
   );
@@ -195,6 +268,20 @@ export function GroupAnalytics() {
 
   const authorsWithCounts = processContent();
 
+  const weeks = _.chain(allContent)
+    .groupBy((post) => {
+      return prettyWeekStart(
+        parseInt(format(post.sent, "yyyy")),
+        parseInt(format(post.sent, "ww"))
+      );
+    })
+    .mapValues((posts) => {
+      return _.orderBy(posts, "sent", "desc");
+    })
+    .value();
+
+  console.log(weeks);
+
   const posts = {
     retained: _.sumBy(_.filter(authorsWithCounts, "isRetained"), "cur"),
     new: _.sumBy(_.filter(authorsWithCounts, "isNew"), "cur"),
@@ -219,7 +306,7 @@ export function GroupAnalytics() {
       </div>
       <div className="card w-full">
         <h1 className="text-lg font-bold mb-2">Group Insights</h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 leading-5">
           Get a sense of how your group is evolving over time. Learn membership
           access patterns. Observe your group as a whole.
         </p>
@@ -237,7 +324,7 @@ export function GroupAnalytics() {
         </Card>
         <Card loading={isAnyPending}>
           <h2 className="text-lg font-bold mb-2">Summary</h2>
-          <p className="text-gray-600">30-day overview of change</p>
+          <p className="text-gray-600 leading-5">30-day overview of change</p>
           <ul className="mt-6">
             <li>
               <SummaryRow
@@ -331,7 +418,23 @@ export function GroupAnalytics() {
           </ul>
         </Card>
       </div>
-
+      <Card loading={isAnyPending} className="mb-4">
+        <Line
+          /* @ts-expect-error */
+          options={chartOpts}
+          data={{
+            labels: _.keys(weeks).sort(),
+            datasets: [
+              {
+                label: "Total Posts",
+                data: cumulativeSum(_.map(weeks, (week) => week.length)),
+                backgroundColor: "rgba(0, 0, 0, 1)",
+                fill: true,
+              },
+            ],
+          }}
+        />
+      </Card>
       <Card loading={isAnyPending}>
         <div className="flex space-x-2 items-baseline justify-between">
           <div>
@@ -363,13 +466,13 @@ export function GroupAnalytics() {
                 <th className="p-2 font-semibold text-gray-400 text-left w-3/12">
                   Quality
                 </th>
-                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
+                <th className="p-2 font-semibold text-gray-400 text-right w-1/12 whitespace-nowrap">
                   Posts (30d)
                 </th>
-                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
+                <th className="p-2 font-semibold text-gray-400 text-right w-1/12 whitespace-nowrap">
                   Posts (60d)
                 </th>
-                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
+                <th className="p-2 font-semibold text-gray-400 text-right w-1/12 whitespace-nowrap">
                   Posts (90d)
                 </th>
               </tr>
