@@ -16,7 +16,6 @@ import {
   Chart as ChartJS,
   LinearScale,
   CategoryScale,
-  TimeScale,
   Tooltip,
   Legend,
   BarElement,
@@ -25,14 +24,16 @@ import { Bar } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 import { enUS } from "date-fns/locale";
 
-ChartJS.register(
-  CategoryScale,
-  TimeScale,
-  LinearScale,
-  BarElement,
-  Tooltip,
-  Legend
-);
+type ChartedPosts = {
+  newPosts: number[];
+  expandedPosts: number[];
+  retainedPosts: number[];
+  resurrectedPosts: number[];
+  contractedPosts: number[];
+  churnedPosts: number[];
+};
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const chartOpts = {
   responsive: true,
@@ -44,10 +45,7 @@ const chartOpts = {
   scales: {
     x: {
       stacked: true,
-      type: "time",
-      time: {
-        unit: "week",
-      },
+      type: "category",
     },
     y: {
       stacked: true,
@@ -93,7 +91,7 @@ function Card({
   );
 }
 
-export function GroupAnalytics() {
+export function WeekView() {
   const ref = useRef<HTMLDivElement>(null);
 
   const groupChannels = useChannels();
@@ -213,7 +211,46 @@ export function GroupAnalytics() {
 
   const allContent = _.concat(memos, hearts, outlines);
 
-  // split allContent into weeks. return the posts as-is, but add a week number
+  const getFilteredAndOrderedPosts = (
+    content: any,
+    startDaysAgo: number,
+    endDaysAgo: number
+  ) =>
+    _.chain(content)
+      .filter((item) => {
+        if (
+          isWithinInterval(item.sent, {
+            start: subDays(new Date(), startDaysAgo),
+            end: subDays(new Date(), endDaysAgo),
+          })
+        ) {
+          return item;
+        }
+      })
+      .orderBy("sent", "desc")
+      .value();
+
+  const periods = _.map([120, 90, 60, 30], (daysAgo) => {
+    const posts = getFilteredAndOrderedPosts(allContent, daysAgo, daysAgo - 30);
+    return {
+      daysAgo,
+      posts,
+    };
+  });
+
+  const processedPeriods = _.chain(periods)
+    .map((period, i) => {
+      const prevPeriod = periods[i - 1];
+      const pastPeriod = periods[i - 2];
+      return processContent(
+        period.daysAgo.toString(),
+        period.posts,
+        prevPeriod?.posts,
+        pastPeriod?.posts
+      );
+    })
+    .value();
+
   const weeks = _.chain(allContent)
     .groupBy((post) => {
       const date = post.sent;
@@ -229,7 +266,6 @@ export function GroupAnalytics() {
     .orderBy("week", "asc")
     .value();
 
-  // run processContent on each week, the previous week, and the week before that
   const processedWeeks = _.chain(weeks)
     .map((week, i) => {
       const prevWeek = weeks[i - 1];
@@ -243,59 +279,41 @@ export function GroupAnalytics() {
     })
     .value();
 
-  const newPosts = _.map(processedWeeks, (week) => {
-    return _.sumBy(
-      _.filter(week, (ship) => {
-        return ship.isNew;
-      }),
-      "cur"
-    );
-  });
+  function calculatePostsByStatus(processedWeeks: any) {
+    const postsByStatus: ChartedPosts = {
+      newPosts: [],
+      expandedPosts: [],
+      retainedPosts: [],
+      resurrectedPosts: [],
+      contractedPosts: [],
+      churnedPosts: [],
+    };
 
-  const expandedPosts = _.map(processedWeeks, (week) => {
-    return _.sumBy(
-      _.filter(week, (ship) => {
-        return ship.isExpanded;
-      }),
-      "cur"
-    );
-  });
+    _.forEach(processedWeeks, (week) => {
+      postsByStatus.newPosts.push(
+        _.sumBy(_.filter(week, { isNew: true }), "cur")
+      );
+      postsByStatus.expandedPosts.push(
+        _.sumBy(_.filter(week, { isExpanded: true }), "cur")
+      );
+      postsByStatus.retainedPosts.push(
+        _.sumBy(_.filter(week, { isRetained: true }), "cur")
+      );
+      postsByStatus.resurrectedPosts.push(
+        _.sumBy(_.filter(week, { isResurrected: true }), "cur")
+      );
+      postsByStatus.contractedPosts.push(
+        _.sumBy(_.filter(week, { isContracted: true }), "cur")
+      );
+      postsByStatus.churnedPosts.push(
+        _.sumBy(_.filter(week, { isChurned: true }), "prev")
+      );
+    });
 
-  const retainedPosts = _.map(processedWeeks, (week) => {
-    return _.sumBy(
-      _.filter(week, (ship) => {
-        return ship.isRetained;
-      }),
-      "cur"
-    );
-  });
+    return postsByStatus;
+  }
 
-  const resurrectedPosts = _.map(processedWeeks, (week) => {
-    return _.sumBy(
-      _.filter(week, (ship) => {
-        return ship.isResurrected;
-      }),
-      "cur"
-    );
-  });
-
-  const contractedPosts = _.map(processedWeeks, (week) => {
-    return _.sumBy(
-      _.filter(week, (ship) => {
-        return ship.isContracted;
-      }),
-      "cur"
-    );
-  });
-
-  const churnedPosts = _.map(processedWeeks, (week) => {
-    return _.sumBy(
-      _.filter(week, (ship) => {
-        return ship.isChurned;
-      }),
-      "prev"
-    );
-  });
+  const postsByStatus = calculatePostsByStatus(processedWeeks);
 
   return (
     <div className="p-4">
@@ -308,59 +326,58 @@ export function GroupAnalytics() {
           Week-by-week count of posts from users that are new, expanded,
           resurrected, retained, contracted, or churned.
         </p>
-        {!isAnyPending && (
-          <Bar
-            /* @ts-expect-error */
-            options={chartOpts}
-            data={{
-              labels: _.map(weeks, "week"),
-              datasets: [
-                {
-                  label: "Churned",
-                  data: _.map(churnedPosts, (post) => post * -1),
-                  backgroundColor: "#e63946",
-                  borderColor: "#FFFFFF",
-                  borderWidth: 1,
-                },
-                {
-                  label: "Contracted",
-                  data: contractedPosts,
-                  backgroundColor: "#f59e0b",
-                  borderColor: "#FFFFFF",
-                  borderWidth: 1,
-                },
-                {
-                  label: "Retained",
-                  data: retainedPosts,
-                  backgroundColor: "#FF9040",
-                  borderColor: "#FFFFFF",
-                  borderWidth: 1,
-                },
-                {
-                  label: "Resurrected",
-                  data: resurrectedPosts,
-                  backgroundColor: "#a855f7",
-                  borderColor: "#FFFFFF",
-                  borderWidth: 1,
-                },
-                {
-                  label: "Expanded",
-                  data: expandedPosts,
-                  backgroundColor: "#008EFF",
-                  borderColor: "#FFFFFF",
-                  borderWidth: 1,
-                },
-                {
-                  label: "New",
-                  data: newPosts,
-                  backgroundColor: "#2AD546",
-                  borderColor: "#FFFFFF",
-                  borderWidth: 1,
-                },
-              ],
-            }}
-          />
-        )}
+        <Bar
+          /* @ts-expect-error */
+          options={chartOpts}
+          data={{
+            // labels: ["120", "90", "60", "30"],
+            labels: _.map(weeks, "week"),
+            datasets: [
+              {
+                label: "Churned",
+                data: _.map(postsByStatus.churnedPosts, (post) => post * -1),
+                backgroundColor: "#e63946",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "Contracted",
+                data: postsByStatus.contractedPosts,
+                backgroundColor: "#f59e0b",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "Retained",
+                data: postsByStatus.retainedPosts,
+                backgroundColor: "#FF9040",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "Resurrected",
+                data: postsByStatus.resurrectedPosts,
+                backgroundColor: "#a855f7",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "Expanded",
+                data: postsByStatus.expandedPosts,
+                backgroundColor: "#008EFF",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "New",
+                data: postsByStatus.newPosts,
+                backgroundColor: "#2AD546",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+            ],
+          }}
+        />
       </Card>
     </div>
   );
