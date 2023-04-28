@@ -24,19 +24,20 @@ import { Bar } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 import { enUS } from "date-fns/locale";
 
-type ChartedPosts = {
+interface ChartedPosts {
   newPosts: number[];
   expandedPosts: number[];
   retainedPosts: number[];
   resurrectedPosts: number[];
   contractedPosts: number[];
   churnedPosts: number[];
-};
+}
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const chartOpts = {
   responsive: true,
+  animation: false,
   adapters: {
     date: {
       locale: enUS,
@@ -93,7 +94,7 @@ function Card({
 
 export function WeekView() {
   const ref = useRef<HTMLDivElement>(null);
-
+  const [period, setPeriod] = useState("week");
   const groupChannels = useChannels();
 
   const writs = useWrits(
@@ -313,7 +314,14 @@ export function WeekView() {
     return postsByStatus;
   }
 
-  const postsByStatus = calculatePostsByStatus(processedWeeks);
+  // specify a return type for a function
+  const postsByStatus = (): ChartedPosts => {
+    if (period === "week") {
+      return calculatePostsByStatus(processedWeeks);
+    } else {
+      return calculatePostsByStatus(processedPeriods);
+    }
+  };
 
   return (
     <div className="p-4">
@@ -321,56 +329,78 @@ export function WeekView() {
         <GroupNav />
       </div>
       <Card loading={isAnyPending} className="mb-4">
-        <h2 className="text-lg font-bold mb-2">Posts by Week</h2>
+        <h2 className="text-lg font-bold mb-2">Display options</h2>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setPeriod("week")}
+            className={cn(period === "week" ? "button" : "secondary-button")}
+          >
+            Week-over-week
+          </button>
+          <button
+            onClick={() => setPeriod("period")}
+            className={cn(period === "period" ? "button" : "secondary-button")}
+          >
+            30/60/90
+          </button>
+        </div>
+      </Card>
+      <Card loading={isAnyPending} className="mb-4">
+        <h2 className="text-lg font-bold mb-2">
+          Posts by {period === "week" ? "week" : "period"}
+        </h2>
         <p className="text-gray-600 leading-5 mb-6">
-          Week-by-week count of posts from users that are new, expanded,
-          resurrected, retained, contracted, or churned.
+          {period === "week" ? "Week-by-week" : "Rolling 30-day"} count of posts
+          from users that are new, expanded, resurrected, retained, contracted,
+          or churned.
         </p>
         <Bar
           /* @ts-expect-error */
           options={chartOpts}
           data={{
-            // labels: ["120", "90", "60", "30"],
-            labels: _.map(weeks, "week"),
+            labels:
+              period === "week"
+                ? _.map(weeks, "week")
+                : ["120", "90", "60", "30"],
             datasets: [
               {
                 label: "Churned",
-                data: _.map(postsByStatus.churnedPosts, (post) => post * -1),
+                data: _.map(postsByStatus().churnedPosts, (post) => post * -1),
                 backgroundColor: "#e63946",
                 borderColor: "#FFFFFF",
                 borderWidth: 1,
               },
               {
                 label: "Contracted",
-                data: postsByStatus.contractedPosts,
+                data: postsByStatus().contractedPosts,
                 backgroundColor: "#f59e0b",
                 borderColor: "#FFFFFF",
                 borderWidth: 1,
               },
               {
                 label: "Retained",
-                data: postsByStatus.retainedPosts,
+                data: postsByStatus().retainedPosts,
                 backgroundColor: "#FF9040",
                 borderColor: "#FFFFFF",
                 borderWidth: 1,
               },
               {
                 label: "Resurrected",
-                data: postsByStatus.resurrectedPosts,
+                data: postsByStatus().resurrectedPosts,
                 backgroundColor: "#a855f7",
                 borderColor: "#FFFFFF",
                 borderWidth: 1,
               },
               {
                 label: "Expanded",
-                data: postsByStatus.expandedPosts,
+                data: postsByStatus().expandedPosts,
                 backgroundColor: "#008EFF",
                 borderColor: "#FFFFFF",
                 borderWidth: 1,
               },
               {
                 label: "New",
-                data: postsByStatus.newPosts,
+                data: postsByStatus().newPosts,
                 backgroundColor: "#2AD546",
                 borderColor: "#FFFFFF",
                 borderWidth: 1,
