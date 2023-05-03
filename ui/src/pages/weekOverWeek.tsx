@@ -31,6 +31,8 @@ interface ChartedPosts {
   resurrectedPosts: number[];
   contractedPosts: number[];
   churnedPosts: number[];
+  total: number[];
+  value: number[];
 }
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
@@ -100,9 +102,9 @@ function SummaryRow({
   className,
 }: {
   glyph: string;
-  value: number;
+  value: number | undefined;
   label: string;
-  accent: "orange" | "blue" | "green" | "red";
+  accent: "orange" | "blue" | "green" | "purple" | "amber" | "red";
   className?: string;
 }) {
   return (
@@ -113,6 +115,8 @@ function SummaryRow({
           accent === "orange" && "bg-orange-50 text-orange-500",
           accent === "blue" && "bg-blue-50 text-blue-500",
           accent === "green" && "bg-green-50 text-green-500",
+          accent === "purple" && "bg-purple-50 text-purple-500",
+          accent === "amber" && "bg-amber-50 text-amber-500",
           accent === "red" && "bg-red-50 text-red-500"
         )}
       >
@@ -321,6 +325,8 @@ export function WeekView() {
       resurrectedPosts: [],
       contractedPosts: [],
       churnedPosts: [],
+      total: [],
+      value: [],
     };
 
     _.forEach(processedInterval, (interval) => {
@@ -341,6 +347,18 @@ export function WeekView() {
       );
       postsByStatus.churnedPosts.push(
         _.sumBy(_.filter(interval, { isChurned: true }), "prev")
+      );
+      postsByStatus.total.push(
+        _.sumBy(_.filter(interval, { isChurned: false }), "cur")
+      );
+      postsByStatus.total.push(
+        _.sumBy(_.filter(interval, { isChurned: false }), "cur")
+      );
+      postsByStatus.value.push(
+        _.sumBy(
+          _.filter(interval, { isChurned: false, isContracted: false }),
+          "cur"
+        )
       );
     });
 
@@ -393,7 +411,9 @@ export function WeekView() {
             The sum of all posts from new, retained, expanded, and resurrected
             users over the past {period === "week" ? "week" : "30 days"}.
           </p>
-          <div className="text-2xl rounded font-semibold text-blue-500 bg-blue-50 text-center py-2 mt-8"></div>
+          <div className="text-2xl rounded font-semibold text-blue-500 bg-blue-50 text-center py-2 mt-8">
+            {postsByStatus().value.pop()}
+          </div>
         </Card>
         <Card loading={isAnyPending}>
           <h2 className="text-lg font-bold mb-2">Summary</h2>
@@ -404,7 +424,7 @@ export function WeekView() {
             <li>
               <SummaryRow
                 glyph="↑"
-                value={0}
+                value={postsByStatus().newPosts.pop()}
                 label="new user posts"
                 accent="green"
               />
@@ -412,23 +432,23 @@ export function WeekView() {
             <li>
               <SummaryRow
                 glyph="↑"
-                value={0}
+                value={postsByStatus().expandedPosts.pop()}
                 label="expanded user posts"
-                accent="green"
+                accent="blue"
               />
             </li>
             <li className="mb-2">
               <SummaryRow
                 glyph="↑"
-                value={0}
+                value={postsByStatus().resurrectedPosts.pop()}
                 label="resurrected user posts"
-                accent="green"
+                accent="purple"
               />
             </li>
             <li className="mb-2">
               <SummaryRow
                 glyph="~"
-                value={0}
+                value={postsByStatus().retainedPosts.pop()}
                 label="retained user posts"
                 accent="orange"
               />
@@ -436,15 +456,15 @@ export function WeekView() {
             <li>
               <SummaryRow
                 glyph="↓"
-                value={0}
+                value={postsByStatus().contractedPosts.pop()}
                 label="contracted user posts"
-                accent="red"
+                accent="amber"
               />
             </li>
             <li>
               <SummaryRow
                 glyph="↓"
-                value={0}
+                value={postsByStatus().churnedPosts.pop()}
                 label="churned user posts"
                 accent="red"
               />
@@ -460,27 +480,27 @@ export function WeekView() {
           <ul className="mt-4">
             <li>
               <SummaryRow
-                glyph="30"
+                glyph={period === "week" ? "*" : "30"}
                 className="text-lg"
-                value={0}
+                value={postsByStatus().total.pop()}
                 label="posts"
                 accent="blue"
               />
             </li>
             <li>
               <SummaryRow
-                glyph="60"
+                glyph={period === "week" ? "-1" : "60"}
                 className="text-lg"
-                value={0}
+                value={postsByStatus().total.reverse()[1]}
                 label="posts"
                 accent="blue"
               />
             </li>
             <li>
               <SummaryRow
-                glyph="90"
+                glyph={period === "week" ? "-2" : "90"}
                 className="text-lg"
-                value={0}
+                value={postsByStatus().total.reverse()[2]}
                 label="posts"
                 accent="blue"
               />
