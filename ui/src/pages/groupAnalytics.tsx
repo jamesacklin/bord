@@ -491,7 +491,7 @@ export function GroupAnalytics() {
               <SummaryRow
                 glyph={period === "week" ? "-1" : "60"}
                 className="text-lg"
-                value={postsByStatus().total.reverse()[1]}
+                value={postsByStatus().total.reverse()[2]}
                 label="posts"
                 accent="blue"
               />
@@ -500,7 +500,7 @@ export function GroupAnalytics() {
               <SummaryRow
                 glyph={period === "week" ? "-2" : "90"}
                 className="text-lg"
-                value={postsByStatus().total.reverse()[2]}
+                value={postsByStatus().total.reverse()[4]}
                 label="posts"
                 accent="blue"
               />
