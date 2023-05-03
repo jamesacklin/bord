@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import cn from "classnames";
 import _ from "lodash";
-import { isWithinInterval, subDays } from "date-fns";
+import { isWithinInterval, subDays, format, subWeeks, getWeek } from "date-fns";
 import { CSVLink } from "react-csv";
 import {
   useChannels,
@@ -12,6 +12,66 @@ import {
 import { useIsOverflow } from "../logic/useIsOverflow";
 import { Spinner } from "../components/spinner";
 import { GroupNav } from "../components/GroupNav";
+import {
+  Chart as ChartJS,
+  LinearScale,
+  CategoryScale,
+  Tooltip,
+  Legend,
+  BarElement,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
+import "chartjs-adapter-date-fns";
+import { enUS } from "date-fns/locale";
+
+interface ChartedPosts {
+  newPosts: number[];
+  expandedPosts: number[];
+  retainedPosts: number[];
+  resurrectedPosts: number[];
+  contractedPosts: number[];
+  churnedPosts: number[];
+  total: number[];
+  value: number[];
+}
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
+const chartOpts = {
+  responsive: true,
+  animation: false,
+  adapters: {
+    date: {
+      locale: enUS,
+    },
+  },
+  scales: {
+    x: {
+      stacked: true,
+      type: "category",
+    },
+    y: {
+      stacked: true,
+      type: "linear",
+    },
+  },
+  plugins: {
+    legend: {
+      position: "bottom" as const,
+    },
+  },
+};
+
+const prettyWeekStart = (w: any) => {
+  const [year, week] = w.split("-");
+  const d = new Date(year, 0, 1);
+  const dayNum = (d.getDay() + 6) % 7;
+  const firstMonday = d.setDate(d.getDate() - dayNum + 1);
+  const weekStart = new Date(
+    firstMonday + (week - 1) * 7 * 24 * 60 * 60 * 1000
+  );
+  return format(weekStart, "yyyy-MM-dd");
+};
 
 function Card({
   children,
@@ -42,9 +102,9 @@ function SummaryRow({
   className,
 }: {
   glyph: string;
-  value: number;
+  value: number | undefined;
   label: string;
-  accent: "orange" | "blue" | "green" | "red";
+  accent: "orange" | "blue" | "green" | "purple" | "amber" | "red";
   className?: string;
 }) {
   return (
@@ -55,6 +115,8 @@ function SummaryRow({
           accent === "orange" && "bg-orange-50 text-orange-500",
           accent === "blue" && "bg-blue-50 text-blue-500",
           accent === "green" && "bg-green-50 text-green-500",
+          accent === "purple" && "bg-purple-50 text-purple-500",
+          accent === "amber" && "bg-amber-50 text-amber-500",
           accent === "red" && "bg-red-50 text-red-500"
         )}
       >
@@ -69,9 +131,7 @@ function SummaryRow({
 
 export function GroupAnalytics() {
   const ref = useRef<HTMLDivElement>(null);
-  const isOverflow = useIsOverflow(ref);
-  const [hasScrolled, setHasScrolled] = useState(false);
-
+  const [period, setPeriod] = useState("week");
   const groupChannels = useChannels();
 
   const writs = useWrits(
@@ -95,7 +155,9 @@ export function GroupAnalytics() {
   const memos = _.flatten(
     _.map(writs, (writ: any) => {
       return _.map(writ.data, (writ: any) => {
-        return _.merge({}, writ.memo, { sent: new Date(writ.memo.sent) });
+        return _.merge({}, writ.memo, {
+          sent: new Date(parseInt(writ.memo.sent.toString().padEnd(13, "0"))),
+        });
       });
     })
   );
@@ -103,7 +165,9 @@ export function GroupAnalytics() {
   const hearts = _.flatten(
     _.map(curios, (curio: any) => {
       return _.map(curio.data, (curio: any) => {
-        return _.merge({}, curio.heart, { sent: new Date(curio.heart.sent) });
+        return _.merge({}, curio.heart, {
+          sent: new Date(parseInt(curio.heart.sent.toString().padEnd(13, "0"))),
+        });
       });
     })
   );
@@ -111,43 +175,33 @@ export function GroupAnalytics() {
   const outlines = _.flatten(
     _.map(notes, (note: any) => {
       return _.map(note.data, (note: any) => {
-        return _.merge({}, note, { sent: new Date(note.sent) });
+        return _.merge({}, note, {
+          sent: new Date(parseInt(note.sent.toString().padEnd(13, "0"))),
+        });
       });
     })
   );
 
-  const allContent = _.concat(memos, hearts, outlines);
-
-  const getFilteredAndOrderedPosts = (
-    content: any,
-    startDaysAgo: number,
-    endDaysAgo: number
-  ) =>
-    _.chain(content)
-      .filter((item) => {
-        if (
-          isWithinInterval(item.sent, {
-            start: subDays(new Date(), startDaysAgo),
-            end: subDays(new Date(), endDaysAgo),
-          })
-        ) {
-          return item;
-        }
-      })
-      .orderBy("sent", "desc")
-      .value();
-
-  const periodPosts = getFilteredAndOrderedPosts(allContent, 30, 0);
-  const prevPeriodPosts = getFilteredAndOrderedPosts(allContent, 60, 30);
-  const pastPeriodPosts = getFilteredAndOrderedPosts(allContent, 90, 60);
+  const isAnyPending =
+    _.some(writs, { status: "loading" }) ||
+    _.some(curios, { status: "loading" }) ||
+    _.some(notes, { status: "loading" });
 
   const getPostCountByAuthor = (posts: any, author: string) =>
     _.countBy(posts, "author")[author] ?? 0;
 
-  function processContent() {
-    const allMemos = _.concat(periodPosts, prevPeriodPosts, pastPeriodPosts);
-    const ships = _.map(_.uniqBy(allMemos, "author"), "author");
-
+  function processContent(
+    marker: string,
+    periodPosts: any,
+    prevPeriodPosts?: any,
+    pastPeriodPosts?: any
+  ) {
+    const allPosts = _.concat(
+      periodPosts,
+      prevPeriodPosts ? prevPeriodPosts : [],
+      pastPeriodPosts ? pastPeriodPosts : []
+    );
+    const ships = _.map(_.uniqBy(allPosts, "author"), "author");
     const allCounts = _.chain(ships)
       .map((author) => {
         const cur = getPostCountByAuthor(periodPosts, author);
@@ -176,6 +230,7 @@ export function GroupAnalytics() {
 
         return {
           ship: author,
+          period: marker,
           cur,
           prev,
           past,
@@ -189,60 +244,187 @@ export function GroupAnalytics() {
       })
       .orderBy("cur", "desc")
       .value();
-
     return allCounts;
   }
 
-  const authorsWithCounts = processContent();
+  const allContent = _.concat(memos, hearts, outlines);
 
-  const posts = {
-    retained: _.sumBy(_.filter(authorsWithCounts, "isRetained"), "cur"),
-    new: _.sumBy(_.filter(authorsWithCounts, "isNew"), "cur"),
-    expanded: _.sumBy(_.filter(authorsWithCounts, "isExpanded"), "cur"),
-    resurrected: _.sumBy(_.filter(authorsWithCounts, "isResurrected"), "cur"),
-    contracted: _.sumBy(_.filter(authorsWithCounts, "isContracted"), "prev"),
-    churned: _.sumBy(_.filter(authorsWithCounts, "isChurned"), "prev"),
-    totalPeriod: _.sumBy(authorsWithCounts, "cur"),
-    totalPrevPeriod: _.sumBy(authorsWithCounts, "prev"),
-    totalPastPeriod: _.sumBy(authorsWithCounts, "past"),
+  const getFilteredAndOrderedPosts = (
+    content: any,
+    startDaysAgo: number,
+    endDaysAgo: number
+  ) =>
+    _.chain(content)
+      .filter((item) => {
+        if (
+          isWithinInterval(item.sent, {
+            start: subDays(new Date(), startDaysAgo),
+            end: subDays(new Date(), endDaysAgo),
+          })
+        ) {
+          return item;
+        }
+      })
+      .orderBy("sent", "desc")
+      .value();
+
+  const periods = _.map([120, 90, 60, 30], (daysAgo) => {
+    const posts = getFilteredAndOrderedPosts(allContent, daysAgo, daysAgo - 30);
+    return {
+      daysAgo,
+      posts,
+    };
+  });
+
+  const processedPeriods = _.chain(periods)
+    .map((period, i) => {
+      const prevPeriod = periods[i - 1];
+      const pastPeriod = periods[i - 2];
+      return processContent(
+        period.daysAgo.toString(),
+        period.posts,
+        prevPeriod?.posts,
+        pastPeriod?.posts
+      );
+    })
+    .value();
+
+  const weeks = _.chain(allContent)
+    .groupBy((post) => {
+      const date = post.sent;
+      const week = prettyWeekStart(format(date, "yyyy-ww"));
+      return week;
+    })
+    .map((posts, week) => {
+      return {
+        week,
+        posts,
+      };
+    })
+    .orderBy("week", "asc")
+    .value();
+
+  const processedWeeks = _.chain(weeks)
+    .map((week, i) => {
+      const prevWeek = weeks[i - 1];
+      const pastWeek = weeks[i - 2];
+      return processContent(
+        week.week,
+        week.posts,
+        prevWeek?.posts,
+        pastWeek?.posts
+      );
+    })
+    .value();
+
+  function calculatePostsByStatus(processedInterval: any) {
+    const postsByStatus: ChartedPosts = {
+      newPosts: [],
+      expandedPosts: [],
+      retainedPosts: [],
+      resurrectedPosts: [],
+      contractedPosts: [],
+      churnedPosts: [],
+      total: [],
+      value: [],
+    };
+
+    _.forEach(processedInterval, (interval) => {
+      postsByStatus.newPosts.push(
+        _.sumBy(_.filter(interval, { isNew: true }), "cur")
+      );
+      postsByStatus.expandedPosts.push(
+        _.sumBy(_.filter(interval, { isExpanded: true }), "cur")
+      );
+      postsByStatus.retainedPosts.push(
+        _.sumBy(_.filter(interval, { isRetained: true }), "cur")
+      );
+      postsByStatus.resurrectedPosts.push(
+        _.sumBy(_.filter(interval, { isResurrected: true }), "cur")
+      );
+      postsByStatus.contractedPosts.push(
+        _.sumBy(_.filter(interval, { isContracted: true }), "cur")
+      );
+      postsByStatus.churnedPosts.push(
+        _.sumBy(_.filter(interval, { isChurned: true }), "prev")
+      );
+      postsByStatus.total.push(
+        _.sumBy(_.filter(interval, { isChurned: false }), "cur")
+      );
+      postsByStatus.total.push(
+        _.sumBy(_.filter(interval, { isChurned: false }), "cur")
+      );
+      postsByStatus.value.push(
+        _.sumBy(
+          _.filter(interval, { isChurned: false, isContracted: false }),
+          "cur"
+        )
+      );
+    });
+
+    return postsByStatus;
+  }
+
+  // specify a return type for a function
+  const postsByStatus = (): ChartedPosts => {
+    if (period === "week") {
+      return calculatePostsByStatus(processedWeeks);
+    } else {
+      return calculatePostsByStatus(processedPeriods);
+    }
   };
-
-  const isAnyPending =
-    _.some(writs, { status: "loading" }) ||
-    _.some(curios, { status: "loading" }) ||
-    _.some(notes, { status: "loading" });
 
   return (
     <div className="p-4">
       <div className="mb-4">
         <GroupNav />
       </div>
-      <div className="card w-full">
+
+      <div className="card w-full mb-4">
         <h1 className="text-lg font-bold mb-2">Group Insights</h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 leading-5">
           Get a sense of how your group is evolving over time. Learn membership
           access patterns. Observe your group as a whole.
         </p>
       </div>
+      <Card loading={isAnyPending} className="">
+        <h2 className="text-lg font-bold mb-2">Display options</h2>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setPeriod("week")}
+            className={cn(period === "week" ? "button" : "secondary-button")}
+          >
+            Week-over-week
+          </button>
+          <button
+            onClick={() => setPeriod("period")}
+            className={cn(period === "period" ? "button" : "secondary-button")}
+          >
+            30/60/90
+          </button>
+        </div>
+      </Card>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
         <Card loading={isAnyPending}>
           <h2 className="text-lg font-bold mb-2">Total Group Value</h2>
           <p className="text-gray-600 leading-5">
             The sum of all posts from new, retained, expanded, and resurrected
-            users over the past 30 days.
+            users over the past {period === "week" ? "week" : "30 days"}.
           </p>
           <div className="text-2xl rounded font-semibold text-blue-500 bg-blue-50 text-center py-2 mt-8">
-            {posts.retained + posts.new + posts.expanded + posts.resurrected}
+            {postsByStatus().value.pop()}
           </div>
         </Card>
         <Card loading={isAnyPending}>
           <h2 className="text-lg font-bold mb-2">Summary</h2>
-          <p className="text-gray-600">30-day overview of change</p>
+          <p className="text-gray-600 leading-5">
+            {period === "week" ? "Weekly" : "30-day"} overview of change
+          </p>
           <ul className="mt-6">
             <li>
               <SummaryRow
                 glyph="↑"
-                value={posts.new}
+                value={postsByStatus().newPosts.pop()}
                 label="new user posts"
                 accent="green"
               />
@@ -250,23 +432,23 @@ export function GroupAnalytics() {
             <li>
               <SummaryRow
                 glyph="↑"
-                value={posts.expanded}
+                value={postsByStatus().expandedPosts.pop()}
                 label="expanded user posts"
-                accent="green"
+                accent="blue"
               />
             </li>
             <li className="mb-2">
               <SummaryRow
                 glyph="↑"
-                value={posts.resurrected}
+                value={postsByStatus().resurrectedPosts.pop()}
                 label="resurrected user posts"
-                accent="green"
+                accent="purple"
               />
             </li>
             <li className="mb-2">
               <SummaryRow
                 glyph="~"
-                value={posts.retained}
+                value={postsByStatus().retainedPosts.pop()}
                 label="retained user posts"
                 accent="orange"
               />
@@ -274,16 +456,16 @@ export function GroupAnalytics() {
             <li>
               <SummaryRow
                 glyph="↓"
-                value={posts.contracted}
+                value={postsByStatus().contractedPosts.pop()}
                 label="contracted user posts"
-                accent="red"
+                accent="amber"
               />
             </li>
             <li>
               <SummaryRow
                 glyph="↓"
-                value={_.filter(authorsWithCounts, "isChurned").length}
-                label="churned users"
+                value={postsByStatus().churnedPosts.pop()}
+                label="churned user posts"
                 accent="red"
               />
             </li>
@@ -292,38 +474,33 @@ export function GroupAnalytics() {
         <Card loading={isAnyPending}>
           <h2 className="text-lg font-bold mb-2">Net Post Totals</h2>
           <p className="text-gray-600 leading-5">
-            Total posts by all members over the past 30, 60, and 90 days.
+            Total posts by all members over the past{" "}
+            {period === "week" ? "three weeks" : "30, 60, and 90 days"}.
           </p>
           <ul className="mt-4">
             <li>
               <SummaryRow
-                glyph="30"
+                glyph={period === "week" ? "*" : "30"}
                 className="text-lg"
-                value={posts.totalPeriod}
+                value={postsByStatus().total.pop()}
                 label="posts"
-                accent={
-                  posts.totalPeriod > posts.totalPrevPeriod ? "green" : "red"
-                }
+                accent="blue"
               />
             </li>
             <li>
               <SummaryRow
-                glyph="60"
+                glyph={period === "week" ? "-1" : "60"}
                 className="text-lg"
-                value={posts.totalPrevPeriod}
+                value={postsByStatus().total.reverse()[1]}
                 label="posts"
-                accent={
-                  posts.totalPrevPeriod > posts.totalPastPeriod
-                    ? "green"
-                    : "red"
-                }
+                accent="blue"
               />
             </li>
             <li>
               <SummaryRow
-                glyph="90"
+                glyph={period === "week" ? "-2" : "90"}
                 className="text-lg"
-                value={posts.totalPastPeriod}
+                value={postsByStatus().total.reverse()[2]}
                 label="posts"
                 accent="blue"
               />
@@ -331,96 +508,69 @@ export function GroupAnalytics() {
           </ul>
         </Card>
       </div>
-
-      <Card loading={isAnyPending}>
-        <div className="flex space-x-2 items-baseline justify-between">
-          <div>
-            <h2 className="text-lg font-bold mb-2">Member Stats</h2>
-            <p className="text-gray-600 leading-5">
-              Post counts for all members over the last 30, 60, and 90 days.
-            </p>
-          </div>
-          <div>
-            <CSVLink
-              className="small-button whitespace-nowrap"
-              data={authorsWithCounts}
-            >
-              Download CSV
-            </CSVLink>
-          </div>
-        </div>
-        <div
-          className="max-h-96 overflow-auto mt-6 relative"
-          ref={ref}
-          onScroll={() => setHasScrolled(true)}
-        >
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th className="p-2 font-semibold text-gray-400 text-left w-6/12">
-                  Author
-                </th>
-                <th className="p-2 font-semibold text-gray-400 text-left w-3/12">
-                  Quality
-                </th>
-                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
-                  Posts (30d)
-                </th>
-                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
-                  Posts (60d)
-                </th>
-                <th className="p-2 font-semibold text-gray-400 text-right w-1/12">
-                  Posts (90d)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {authorsWithCounts.map((author) => {
-                return (
-                  <tr key={author.ship} className="even:bg-gray-50">
-                    <td className="p-2 text-left w-6/12 font-semibold">
-                      {author.ship}
-                    </td>
-                    <td className="p-2 text-left w-3/12 font-semibold">
-                      {author.isNew && (
-                        <span className="text-blue-500">New</span>
-                      )}
-                      {author.isRetained && (
-                        <span className="text-green-500">Retained</span>
-                      )}
-                      {author.isExpanded && (
-                        <span className="text-green-500">Expanded</span>
-                      )}
-                      {author.isContracted && (
-                        <span className="text-orange-500">Contracted</span>
-                      )}
-                      {author.isResurrected && (
-                        <span className="text-purple-500">Resurrected</span>
-                      )}
-                      {author.isChurned && (
-                        <span className="text-red-500">Churned</span>
-                      )}
-                    </td>
-                    <td className="p-2 text-right w-1/12 font-semibold">
-                      {author.cur}
-                    </td>
-                    <td className="p-2 text-right w-1/12 font-semibold">
-                      {author.prev}
-                    </td>
-                    <td className="p-2 text-right w-1/12 font-semibold">
-                      {author.past}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {!hasScrolled && isOverflow && (
-            <div className="absolute inset-x-2/4 w-32 bg-blue-50 text-center text-sm font-bold text-blue-500 rounded-xl p-2 bottom-4 -translate-x-16 shadow-md shadow-blue-200/50">
-              ↓ Scroll for more
-            </div>
-          )}
-        </div>
+      <Card loading={isAnyPending} className="mb-4">
+        <h2 className="text-lg font-bold mb-2">
+          Posts by {period === "week" ? "week" : "period"}
+        </h2>
+        <p className="text-gray-600 leading-5 mb-6">
+          {period === "week" ? "Week-by-week" : "Rolling 30-day"} count of posts
+          from users that are new, expanded, resurrected, retained, contracted,
+          or churned.
+        </p>
+        <Bar
+          /* @ts-expect-error */
+          options={chartOpts}
+          data={{
+            labels:
+              period === "week"
+                ? _.map(weeks, "week")
+                : ["120", "90", "60", "30"],
+            datasets: [
+              {
+                label: "Churned",
+                data: _.map(postsByStatus().churnedPosts, (post) => post * -1),
+                backgroundColor: "#e63946",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "Contracted",
+                data: postsByStatus().contractedPosts,
+                backgroundColor: "#f59e0b",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "Retained",
+                data: postsByStatus().retainedPosts,
+                backgroundColor: "#FF9040",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "Resurrected",
+                data: postsByStatus().resurrectedPosts,
+                backgroundColor: "#a855f7",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "Expanded",
+                data: postsByStatus().expandedPosts,
+                backgroundColor: "#008EFF",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+              {
+                label: "New",
+                data: postsByStatus().newPosts,
+                backgroundColor: "#2AD546",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
+              },
+            ],
+          }}
+        />
       </Card>
     </div>
   );
