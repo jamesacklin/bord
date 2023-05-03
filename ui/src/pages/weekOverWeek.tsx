@@ -92,6 +92,39 @@ function Card({
   );
 }
 
+function SummaryRow({
+  glyph,
+  value,
+  label,
+  accent,
+  className,
+}: {
+  glyph: string;
+  value: number;
+  label: string;
+  accent: "orange" | "blue" | "green" | "red";
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-row items-center p-1 space-x-2", className)}>
+      <div
+        className={cn(
+          "h-6 w-6 rounded font-lg font-bold flex items-center justify-center",
+          accent === "orange" && "bg-orange-50 text-orange-500",
+          accent === "blue" && "bg-blue-50 text-blue-500",
+          accent === "green" && "bg-green-50 text-green-500",
+          accent === "red" && "bg-red-50 text-red-500"
+        )}
+      >
+        {glyph}
+      </div>
+      <div className="font-semibold font-sm">
+        {value} {label}
+      </div>
+    </div>
+  );
+}
+
 export function WeekView() {
   const ref = useRef<HTMLDivElement>(null);
   const [period, setPeriod] = useState("week");
@@ -280,7 +313,7 @@ export function WeekView() {
     })
     .value();
 
-  function calculatePostsByStatus(processedWeeks: any) {
+  function calculatePostsByStatus(processedInterval: any) {
     const postsByStatus: ChartedPosts = {
       newPosts: [],
       expandedPosts: [],
@@ -290,24 +323,24 @@ export function WeekView() {
       churnedPosts: [],
     };
 
-    _.forEach(processedWeeks, (week) => {
+    _.forEach(processedInterval, (interval) => {
       postsByStatus.newPosts.push(
-        _.sumBy(_.filter(week, { isNew: true }), "cur")
+        _.sumBy(_.filter(interval, { isNew: true }), "cur")
       );
       postsByStatus.expandedPosts.push(
-        _.sumBy(_.filter(week, { isExpanded: true }), "cur")
+        _.sumBy(_.filter(interval, { isExpanded: true }), "cur")
       );
       postsByStatus.retainedPosts.push(
-        _.sumBy(_.filter(week, { isRetained: true }), "cur")
+        _.sumBy(_.filter(interval, { isRetained: true }), "cur")
       );
       postsByStatus.resurrectedPosts.push(
-        _.sumBy(_.filter(week, { isResurrected: true }), "cur")
+        _.sumBy(_.filter(interval, { isResurrected: true }), "cur")
       );
       postsByStatus.contractedPosts.push(
-        _.sumBy(_.filter(week, { isContracted: true }), "cur")
+        _.sumBy(_.filter(interval, { isContracted: true }), "cur")
       );
       postsByStatus.churnedPosts.push(
-        _.sumBy(_.filter(week, { isChurned: true }), "prev")
+        _.sumBy(_.filter(interval, { isChurned: true }), "prev")
       );
     });
 
@@ -328,7 +361,15 @@ export function WeekView() {
       <div className="mb-4">
         <GroupNav />
       </div>
-      <Card loading={isAnyPending} className="mb-4">
+
+      <div className="card w-full mb-4">
+        <h1 className="text-lg font-bold mb-2">Group Insights</h1>
+        <p className="text-gray-600 leading-5">
+          Get a sense of how your group is evolving over time. Learn membership
+          access patterns. Observe your group as a whole.
+        </p>
+      </div>
+      <Card loading={isAnyPending} className="">
         <h2 className="text-lg font-bold mb-2">Display options</h2>
         <div className="flex space-x-3">
           <button
@@ -345,6 +386,108 @@ export function WeekView() {
           </button>
         </div>
       </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
+        <Card loading={isAnyPending}>
+          <h2 className="text-lg font-bold mb-2">Total Group Value</h2>
+          <p className="text-gray-600 leading-5">
+            The sum of all posts from new, retained, expanded, and resurrected
+            users over the past {period === "week" ? "week" : "30 days"}.
+          </p>
+          <div className="text-2xl rounded font-semibold text-blue-500 bg-blue-50 text-center py-2 mt-8"></div>
+        </Card>
+        <Card loading={isAnyPending}>
+          <h2 className="text-lg font-bold mb-2">Summary</h2>
+          <p className="text-gray-600 leading-5">
+            {period === "week" ? "Weekly" : "30-day"} overview of change
+          </p>
+          <ul className="mt-6">
+            <li>
+              <SummaryRow
+                glyph="↑"
+                value={0}
+                label="new user posts"
+                accent="green"
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="↑"
+                value={0}
+                label="expanded user posts"
+                accent="green"
+              />
+            </li>
+            <li className="mb-2">
+              <SummaryRow
+                glyph="↑"
+                value={0}
+                label="resurrected user posts"
+                accent="green"
+              />
+            </li>
+            <li className="mb-2">
+              <SummaryRow
+                glyph="~"
+                value={0}
+                label="retained user posts"
+                accent="orange"
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="↓"
+                value={0}
+                label="contracted user posts"
+                accent="red"
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="↓"
+                value={0}
+                label="churned user posts"
+                accent="red"
+              />
+            </li>
+          </ul>
+        </Card>
+        <Card loading={isAnyPending}>
+          <h2 className="text-lg font-bold mb-2">Net Post Totals</h2>
+          <p className="text-gray-600 leading-5">
+            Total posts by all members over the past{" "}
+            {period === "week" ? "three weeks" : "30, 60, and 90 days"}.
+          </p>
+          <ul className="mt-4">
+            <li>
+              <SummaryRow
+                glyph="30"
+                className="text-lg"
+                value={0}
+                label="posts"
+                accent="blue"
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="60"
+                className="text-lg"
+                value={0}
+                label="posts"
+                accent="blue"
+              />
+            </li>
+            <li>
+              <SummaryRow
+                glyph="90"
+                className="text-lg"
+                value={0}
+                label="posts"
+                accent="blue"
+              />
+            </li>
+          </ul>
+        </Card>
+      </div>
       <Card loading={isAnyPending} className="mb-4">
         <h2 className="text-lg font-bold mb-2">
           Posts by {period === "week" ? "week" : "period"}
