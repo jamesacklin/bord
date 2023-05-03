@@ -351,9 +351,6 @@ export function GroupAnalytics() {
       postsByStatus.total.push(
         _.sumBy(_.filter(interval, { isChurned: false }), "cur")
       );
-      postsByStatus.total.push(
-        _.sumBy(_.filter(interval, { isChurned: false }), "cur")
-      );
       postsByStatus.value.push(
         _.sumBy(
           _.filter(interval, { isChurned: false, isContracted: false }),
@@ -491,7 +488,7 @@ export function GroupAnalytics() {
               <SummaryRow
                 glyph={period === "week" ? "-1" : "60"}
                 className="text-lg"
-                value={postsByStatus().total.reverse()[2]}
+                value={postsByStatus().total.at(-2)}
                 label="posts"
                 accent="blue"
               />
@@ -500,7 +497,7 @@ export function GroupAnalytics() {
               <SummaryRow
                 glyph={period === "week" ? "-2" : "90"}
                 className="text-lg"
-                value={postsByStatus().total.reverse()[4]}
+                value={postsByStatus().total.at(-3)}
                 label="posts"
                 accent="blue"
               />
