@@ -4,8 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "react-query";
 import { Members } from "./pages/members";
 import { Home } from "./pages/home";
-import { GroupAnalytics } from "./pages/groupAnalytics";
-import { WeekView } from "./pages/weekOverWeek";
+import { GroupAnalytics } from "./pages/GroupAnalytics";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,7 +21,6 @@ export function App() {
         <Routes>
           <Route index element={<Home />} />
           <Route path="/:ship/:group" element={<GroupAnalytics />} />
-          <Route path="/week/:ship/:group" element={<WeekView />} />
           <Route path="/members" element={<Members />} />
         </Routes>
       </Router>
