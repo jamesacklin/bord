@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: jamesacklin/linear-app-create-issue-action@v1
         with:
+          issueTitle: ${{ github.event.issue.title }}
           issueContent: ${{ github.event.issue.body }}
           apiKey: ${{ secrets.YOUR_API_TOKEN_OF_LINEAR_APP }}
           teamId: ${{ secrets.YOUR_TEAM_ID_OF_LINEAR_APP }}
