@@ -1,0 +1,29 @@
+name: Add issues to project
+
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  get-issue-content:
+    name: Get issue content
+    runs-on: ubuntu-latest
+    outputs:
+      issueContent: ${{ steps.get-issue-content.get }}
+    steps:
+      - id: get
+        uses: peter-murray/issue-body-parser-action@v2.0.1
+
+  add-to-linear:
+    name: Add issue to Linear
+    needs: get-issue-content
+    runs-on: ubuntu-latest
+    steps:
+      - uses: jamesacklin/linear-app-create-issue-action@v1
+        with:
+          issueContent: ${{needs.get-issue-content.outputs.issueContent}}
+          apiKey: ${{ secrets.YOUR_API_TOKEN_OF_LINEAR_APP }}
+          teamId: ${{ secrets.YOUR_TEAM_ID_OF_LINEAR_APP }}
+          stateId: ${{ secrets.YOUR_STATE_ID_OF_LINEAR_APP }}
+          embed: month=July,day=13
