@@ -10,10 +10,13 @@ jobs:
     name: Get issue content
     runs-on: ubuntu-latest
     outputs:
-      issueContent: ${{ steps.get-issue-content.get }}
+      issueContent: ${{ steps.get-issue-content.outputs.payload }}
     steps:
       - id: get
         uses: peter-murray/issue-body-parser-action@v2.0.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_id: ${{ github.event.issue.number }}
 
   add-to-linear:
     name: Add issue to Linear
