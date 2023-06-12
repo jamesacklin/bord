@@ -6,6 +6,13 @@ on:
       - opened
 
 jobs:
+  view-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: View the github context
+        run: echo "$GITHUB_CONTEXT"
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
   add-to-linear:
     name: Add issue to Linear
     runs-on: ubuntu-latest
