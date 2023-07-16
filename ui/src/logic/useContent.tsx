@@ -1,81 +1,76 @@
 import React from "react";
-import _ from "lodash";
-import { useQuery, useQueries } from "react-query";
+import _, { map } from "lodash";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useUrbit } from "./useUrbit";
 
 export function useChannels() {
   const api = useUrbit();
   const { ship, group } = useParams();
-  return useQuery(
-    ["channels", ship, group],
-    async () => {
+  const query = useQuery({
+    queryKey: ["channels", ship, group],
+    queryFn: async () => {
       const g = await api.scry({
         app: "groups",
         path: `/groups/${ship}/${group}`,
       });
       return g.channels;
     },
-    { enabled: !!api && !!ship && !!group }
-  );
+    enabled: !!ship && !!group && !!api,
+  });
+  return query;
 }
 
-export function useWrits(channels: any) {
+export function useContent(channels: any) {
   const api = useUrbit();
-  const writs = useQueries(
-    _.map(channels, (channel: any) => {
+  const content = useQueries({
+    queries: _.map(channels, (channel: any) => {
+      let app: string;
+      let unit: string;
+      let meta: string;
+      if (channel.includes("chat")) {
+        app = "chat";
+        unit = "writs";
+        meta = "memo";
+      } else if (channel.includes("heap")) {
+        app = "heap";
+        unit = "curios";
+        meta = "heart";
+      } else if (channel.includes("diary")) {
+        app = "diary";
+        unit = "notes";
+      }
       return {
-        queryKey: ["writs", channel],
+        queryKey: [channel],
         queryFn: async () => {
-          const c = await api.scry({
-            app: "chat",
-            path: `/${channel}/writs/newest/999.999.999`,
+          const content = await api.scry({
+            app: app,
+            path: `/${channel}/${unit}/newest/999.999.999${
+              app === "diary" ? "/outline" : ""
+            }`,
           });
-          return c;
-        },
-        enabled: !!channel && !!api,
-      };
-    })
-  );
-  return writs;
-}
 
-export function useCurios(channels: any) {
-  const api = useUrbit();
-  const curios = useQueries(
-    _.map(channels, (channel: any) => {
-      return {
-        queryKey: ["curios", channel],
-        queryFn: async () => {
-          const c = await api.scry({
-            app: "heap",
-            path: `/${channel}/curios/newest/999.999.999`,
+          if (app !== "diary") {
+            return _.map(content, (c) => {
+              const withSent = _.merge({}, c[meta], {
+                sent: new Date(
+                  parseInt(c[meta].sent.toString().padEnd(13, "0"))
+                ),
+              });
+              return _.merge({}, withSent, c, { channel: channel });
+            });
+          }
+          return _.map(content, (c) => {
+            return _.merge(
+              c,
+              { sent: new Date(parseInt(c.sent.toString().padEnd(13, "0"))) },
+              { channel: channel }
+            );
           });
-          return c;
         },
-        enabled: !!channel && !!api,
+        enabled: !!(channels.length > 0),
       };
-    })
-  );
-  return curios;
-}
-
-export function useNotes(channels: any) {
-  const api = useUrbit();
-  const notes = useQueries(
-    _.map(channels, (channel: any) => {
-      return {
-        queryKey: ["notes", channel],
-        queryFn: async () => {
-          const c = await api.scry({
-            app: "diary",
-            path: `/${channel}/notes/newest/999.999.999/outline`,
-          });
-          return c;
-        },
-        enabled: !!channel && !!api,
-      };
-    })
-  );
-  return notes;
+    }),
+  });
+  return content;
 }
