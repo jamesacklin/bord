@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useChannels, useContent } from "../logic/useContent";
 import { CSVLink } from "react-csv";
 
-export function GroupAnalytics() {
+export default function CsvDump() {
   const groupChannels = useChannels();
   const content = useContent(_.keys(groupChannels?.data));
 
@@ -18,7 +18,6 @@ export function GroupAnalytics() {
 
   const contentCSV = _.flatten(
     _.map(content, (c: any) => {
-      // console.log(c);
       return _.map(c.data, (p) => {
         if (p.quippers) {
           return {
@@ -34,7 +33,7 @@ export function GroupAnalytics() {
           channel: p.channel,
           author: p.author,
           sent: p.sent.toLocaleString(),
-          quips: 0,
+          quips: null,
           reactions: _.keys(p.seal.feels).length,
           isReply: p.replying ? "Yes" : "No",
         };
@@ -48,9 +47,9 @@ export function GroupAnalytics() {
   return (
     <div>
       {isLoading ? (
-        <div className="button">
-          Loading content from ${numberLoading} of $
-          {_.keys(groupChannels).length} channels...
+        <div>
+          Loading content from {numberLoading} of {_.keys(groupChannels).length}{" "}
+          channels...
         </div>
       ) : (
         <CSVLink data={contentCSV} headers={contentCsvHeaders}>
