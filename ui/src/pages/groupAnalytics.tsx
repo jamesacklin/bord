@@ -1,14 +1,9 @@
 import React, { useState, useRef } from "react";
 import cn from "classnames";
-import _ from "lodash";
+import _, { get } from "lodash";
 import { isWithinInterval, subDays, format, subWeeks, getWeek } from "date-fns";
 import { CSVLink } from "react-csv";
-import {
-  useChannels,
-  useWrits,
-  useCurios,
-  useNotes,
-} from "../logic/useContent";
+import { useChannels, useContent } from "../logic/useContent";
 import { useIsOverflow } from "../logic/useIsOverflow";
 import { Spinner } from "../components/spinner";
 import { GroupNav } from "../components/GroupNav";
@@ -23,6 +18,7 @@ import {
 import { Bar } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 import { enUS } from "date-fns/locale";
+import CsvDump from "../components/csv";
 
 interface ChartedPosts {
   newPosts: number[];
@@ -133,59 +129,10 @@ export function GroupAnalytics() {
   const ref = useRef<HTMLDivElement>(null);
   const [period, setPeriod] = useState("week");
   const groupChannels = useChannels();
+  const contentQuery = useContent(_.keys(groupChannels?.data));
+  const content = _.flatten(_.map(contentQuery, (c) => c.data));
 
-  const writs = useWrits(
-    _.keys(groupChannels?.data).filter((channel: any) =>
-      channel.includes("chat")
-    )
-  );
-
-  const curios = useCurios(
-    _.keys(groupChannels?.data).filter((channel: any) =>
-      channel.includes("heap")
-    )
-  );
-
-  const notes = useNotes(
-    _.keys(groupChannels?.data).filter((channel: any) =>
-      channel.includes("diary")
-    )
-  );
-
-  const memos = _.flatten(
-    _.map(writs, (writ: any) => {
-      return _.map(writ.data, (writ: any) => {
-        return _.merge({}, writ.memo, {
-          sent: new Date(parseInt(writ.memo.sent.toString().padEnd(13, "0"))),
-        });
-      });
-    })
-  );
-
-  const hearts = _.flatten(
-    _.map(curios, (curio: any) => {
-      return _.map(curio.data, (curio: any) => {
-        return _.merge({}, curio.heart, {
-          sent: new Date(parseInt(curio.heart.sent.toString().padEnd(13, "0"))),
-        });
-      });
-    })
-  );
-
-  const outlines = _.flatten(
-    _.map(notes, (note: any) => {
-      return _.map(note.data, (note: any) => {
-        return _.merge({}, note, {
-          sent: new Date(parseInt(note.sent.toString().padEnd(13, "0"))),
-        });
-      });
-    })
-  );
-
-  const isAnyPending =
-    _.some(writs, { status: "loading" }) ||
-    _.some(curios, { status: "loading" }) ||
-    _.some(notes, { status: "loading" });
+  const isAnyPending = contentQuery.some((q) => q.status === "pending");
 
   const getPostCountByAuthor = (posts: any, author: string) =>
     _.countBy(posts, "author")[author] ?? 0;
@@ -247,8 +194,6 @@ export function GroupAnalytics() {
     return allCounts;
   }
 
-  const allContent = _.concat(memos, hearts, outlines);
-
   const getFilteredAndOrderedPosts = (
     content: any,
     startDaysAgo: number,
@@ -256,6 +201,9 @@ export function GroupAnalytics() {
   ) =>
     _.chain(content)
       .filter((item) => {
+        if (!item) {
+          return false;
+        }
         if (
           isWithinInterval(item.sent, {
             start: subDays(new Date(), startDaysAgo),
@@ -269,7 +217,7 @@ export function GroupAnalytics() {
       .value();
 
   const periods = _.map([120, 90, 60, 30], (daysAgo) => {
-    const posts = getFilteredAndOrderedPosts(allContent, daysAgo, daysAgo - 30);
+    const posts = getFilteredAndOrderedPosts(content, daysAgo, daysAgo - 30);
     return {
       daysAgo,
       posts,
@@ -289,7 +237,13 @@ export function GroupAnalytics() {
     })
     .value();
 
-  const weeks = _.chain(allContent)
+  const weeks = _.chain(content)
+    .filter((post) => {
+      if (!post) {
+        return false;
+      }
+      return post;
+    })
     .groupBy((post) => {
       const date = post.sent;
       const week = prettyWeekStart(format(date, "yyyy-ww"));
@@ -362,7 +316,6 @@ export function GroupAnalytics() {
     return postsByStatus;
   }
 
-  // specify a return type for a function
   const postsByStatus = (): ChartedPosts => {
     if (period === "week") {
       return calculatePostsByStatus(processedWeeks);
@@ -384,23 +337,31 @@ export function GroupAnalytics() {
           access patterns. Observe your group as a whole.
         </p>
       </div>
-      <Card loading={isAnyPending} className="">
-        <h2 className="text-lg font-bold mb-2">Display options</h2>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setPeriod("week")}
-            className={cn(period === "week" ? "button" : "secondary-button")}
-          >
-            Week-over-week
-          </button>
-          <button
-            onClick={() => setPeriod("period")}
-            className={cn(period === "period" ? "button" : "secondary-button")}
-          >
-            30/60/90
-          </button>
-        </div>
-      </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+        <Card loading={isAnyPending} className="">
+          <h2 className="text-lg font-bold mb-2">Display options</h2>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setPeriod("week")}
+              className={cn(period === "week" ? "button" : "secondary-button")}
+            >
+              Week-over-week
+            </button>
+            <button
+              onClick={() => setPeriod("period")}
+              className={cn(
+                period === "period" ? "button" : "secondary-button"
+              )}
+            >
+              30/60/90
+            </button>
+          </div>
+        </Card>
+        <Card loading={isAnyPending} className="">
+          <h2 className="text-lg font-bold mb-2">Download Summary</h2>
+          <CsvDump />
+        </Card>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
         <Card loading={isAnyPending}>
           <h2 className="text-lg font-bold mb-2">Total Group Value</h2>

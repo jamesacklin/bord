@@ -1,10 +1,10 @@
 import React from "react";
 import _ from "lodash";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Members } from "./pages/members";
 import { Home } from "./pages/home";
-import { GroupAnalytics } from "./pages/GroupAnalytics";
+import { GroupAnalytics } from "./pages/groupAnalytics";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
