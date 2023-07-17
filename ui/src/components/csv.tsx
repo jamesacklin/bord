@@ -53,9 +53,9 @@ export default function CsvDump() {
             author: p.author,
             date: p.sent.toLocaleDateString(),
             time: p.sent.toLocaleTimeString(),
-            quips: p.quippers.length,
-            words: null,
-            reactions: null,
+            quips: _.keys(p.seal.quips).length,
+            words: getCount(_.map(p.content, (c) => c.inline).join(" ")),
+            reactions: _.keys(p.seal.feels).length,
             isReply: null,
           };
         } else {

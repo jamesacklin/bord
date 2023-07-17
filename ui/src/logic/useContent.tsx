@@ -46,7 +46,7 @@ export function useContent(channels: any) {
           const content = await api.scry({
             app: app,
             path: `/${channel}/${unit}/newest/999.999.999${
-              app === "diary" ? "/outline" : ""
+              app === "diary" ? "/note" : ""
             }`,
           });
 
@@ -60,10 +60,16 @@ export function useContent(channels: any) {
               return _.merge({}, withSent, c, { channel: channel });
             });
           }
+          console.log(content);
           return _.map(content, (c) => {
             return _.merge(
               c,
-              { sent: new Date(parseInt(c.sent.toString().padEnd(13, "0"))) },
+              c.essay,
+              {
+                sent: new Date(
+                  parseInt(c.essay.sent.toString().padEnd(13, "0"))
+                ),
+              },
               { channel: channel }
             );
           });
