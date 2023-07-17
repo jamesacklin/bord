@@ -3,6 +3,10 @@ import _ from "lodash";
 import { useChannels, useContent } from "../logic/useContent";
 import { CSVLink } from "react-csv";
 
+function getCount(str: string) {
+  return str.trim().split(/\s+/).length;
+}
+
 export default function CsvDump() {
   const groupChannels = useChannels();
   const content = useContent(_.keys(groupChannels?.data));
@@ -10,7 +14,9 @@ export default function CsvDump() {
   const contentCsvHeaders = [
     { label: "Channel", key: "channel" },
     { label: "Author", key: "author" },
-    { label: "Sent", key: "sent" },
+    { label: "Date", key: "date" },
+    { label: "Time", key: "time" },
+    { label: "Words", key: "words" },
     { label: "Notebook Comments", key: "quips" },
     { label: "Reactions", key: "reactions" },
     { label: "Is Reply?", key: "isReply" },
@@ -19,24 +25,51 @@ export default function CsvDump() {
   const contentCSV = _.flatten(
     _.map(content, (c: any) => {
       return _.map(c.data, (p) => {
-        if (p.quippers) {
+        if (p.channel.startsWith("chat")) {
           return {
             channel: p.channel,
             author: p.author,
-            sent: p.sent.toLocaleString(),
+            date: p.sent.toLocaleDateString(),
+            time: p.sent.toLocaleTimeString(),
+            quips: null,
+            words: getCount(p.content.story.inline.join(" ")),
+            reactions: _.keys(p.seal.feels).length,
+            isReply: p.replying ? "Yes" : "No",
+          };
+        } else if (p.channel.startsWith("heap")) {
+          return {
+            channel: p.channel,
+            author: p.author,
+            date: p.sent.toLocaleDateString(),
+            time: p.sent.toLocaleTimeString(),
+            quips: null,
+            words: getCount(p.content.inline.join(" ")),
+            reactions: _.keys(p.seal.feels).length,
+            isReply: p.replying ? "Yes" : "No",
+          };
+        } else if (p.channel.startsWith("diary")) {
+          return {
+            channel: p.channel,
+            author: p.author,
+            date: p.sent.toLocaleDateString(),
+            time: p.sent.toLocaleTimeString(),
             quips: p.quippers.length,
+            words: null,
+            reactions: null,
+            isReply: null,
+          };
+        } else {
+          return {
+            channel: p.channel,
+            author: p.author,
+            date: p.sent.toLocaleDateString(),
+            time: p.sent.toLocaleTimeString(),
+            quips: null,
+            words: null,
             reactions: null,
             isReply: null,
           };
         }
-        return {
-          channel: p.channel,
-          author: p.author,
-          sent: p.sent.toLocaleString(),
-          quips: null,
-          reactions: _.keys(p.seal.feels).length,
-          isReply: p.replying ? "Yes" : "No",
-        };
       });
     })
   );

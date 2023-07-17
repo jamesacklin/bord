@@ -28,15 +28,15 @@ export function useContent(channels: any) {
       let app: string;
       let unit: string;
       let meta: string;
-      if (channel.includes("chat")) {
+      if (channel.startsWith("chat")) {
         app = "chat";
         unit = "writs";
         meta = "memo";
-      } else if (channel.includes("heap")) {
+      } else if (channel.startsWith("heap")) {
         app = "heap";
         unit = "curios";
         meta = "heart";
-      } else if (channel.includes("diary")) {
+      } else if (channel.startsWith("diary")) {
         app = "diary";
         unit = "notes";
       }
