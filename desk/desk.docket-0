@@ -1,10 +1,10 @@
 :~  title+'bord'
     info+'Analytics for Tlon Groups'
     color+0xff.ffff
-    glob-http+['https://rilfun-lidlen.nyc3.digitaloceanspaces.com/rilfun-lidlen/glob-0v1.bs19l.5fk4f.2jggi.3e628.vafi7.glob' 0v1.bs19l.5fk4f.2jggi.3e628.vafi7]
+    glob-http+['https://rilfun-lidlen.nyc3.digitaloceanspaces.com/rilfun-lidlen/glob-0v3.vm0ac.ss5os.j9q59.mlapp.9hrsm.glob' 0v3.vm0ac.ss5os.j9q59.mlapp.9hrsm]
     base+'bord'
     image+'https://rilfun-lidlen.nyc3.digitaloceanspaces.com/rilfun-lidlen/bord-tile.png'
-    version+[0 0 9]
+    version+[0 0 11]
     website+'https://nerveharp.net/'
     license+'MIT'
 ==
