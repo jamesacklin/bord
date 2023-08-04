@@ -2,9 +2,7 @@ import React, { useState, useRef } from "react";
 import cn from "classnames";
 import _, { get } from "lodash";
 import { isWithinInterval, subDays, format, subWeeks, getWeek } from "date-fns";
-import { CSVLink } from "react-csv";
 import { useChannels, useContent } from "../logic/useContent";
-import { useIsOverflow } from "../logic/useIsOverflow";
 import { Spinner } from "../components/spinner";
 import { GroupNav } from "../components/GroupNav";
 import {
@@ -15,7 +13,7 @@ import {
   Legend,
   BarElement,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Bar, getElementAtEvent } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 import { enUS } from "date-fns/locale";
 import CsvDump from "../components/csv";
@@ -128,6 +126,8 @@ function SummaryRow({
 export function GroupAnalytics() {
   const ref = useRef<HTMLDivElement>(null);
   const [period, setPeriod] = useState("week");
+  const [breakoutLabel, setBreakoutLabel] = useState("");
+  const [breakoutData, setBreakoutData] = useState<any>(null);
   const groupChannels = useChannels();
   const contentQuery = useContent(_.keys(groupChannels?.data));
   const content = _.flatten(_.map(contentQuery, (c) => c.data));
@@ -324,6 +324,26 @@ export function GroupAnalytics() {
     }
   };
 
+  const chartRef = useRef(null);
+
+  const chartClick = (event: any) => {
+    const chart = chartRef.current;
+    /* @ts-expect-error */
+    const activePoints = getElementAtEvent(chart, event);
+    const index = activePoints[0].index;
+    if (period === "week") {
+      const clickedWeek = processedWeeks[index];
+      /* @ts-expect-error */
+      setBreakoutLabel(chart.data.labels[index]);
+      setBreakoutData(clickedWeek);
+    } else {
+      const clickedPeriod = processedPeriods[index];
+      /* @ts-expect-error */
+      setBreakoutLabel(chart.data.labels[index]);
+      setBreakoutData(clickedPeriod);
+    }
+  };
+
   return (
     <div className="p-4">
       <div className="mb-4">
@@ -342,13 +362,19 @@ export function GroupAnalytics() {
           <h2 className="text-lg font-bold mb-2">Display options</h2>
           <div className="flex space-x-3">
             <button
-              onClick={() => setPeriod("week")}
+              onClick={() => {
+                setPeriod("week");
+                setBreakoutData(null);
+              }}
               className={cn(period === "week" ? "button" : "secondary-button")}
             >
               Week-over-week
             </button>
             <button
-              onClick={() => setPeriod("period")}
+              onClick={() => {
+                setPeriod("period");
+                setBreakoutData(null);
+              }}
               className={cn(
                 period === "period" ? "button" : "secondary-button"
               )}
@@ -466,70 +492,162 @@ export function GroupAnalytics() {
           </ul>
         </Card>
       </div>
-      <Card loading={isAnyPending} className="mb-4">
-        <h2 className="text-lg font-bold mb-2">
-          Posts by {period === "week" ? "week" : "period"}
-        </h2>
-        <p className="text-gray-600 leading-5 mb-6">
-          {period === "week" ? "Week-by-week" : "Rolling 30-day"} count of posts
-          from users that are new, expanded, resurrected, retained, contracted,
-          or churned.
-        </p>
-        <Bar
-          /* @ts-expect-error */
-          options={chartOpts}
-          data={{
-            labels:
-              period === "week"
-                ? _.map(weeks, "week")
-                : ["120", "90", "60", "30"],
-            datasets: [
-              {
-                label: "Churned",
-                data: _.map(postsByStatus().churnedPosts, (post) => post * -1),
-                backgroundColor: "#e63946",
-                borderColor: "#FFFFFF",
-                borderWidth: 1,
-              },
-              {
-                label: "Contracted",
-                data: postsByStatus().contractedPosts,
-                backgroundColor: "#f59e0b",
-                borderColor: "#FFFFFF",
-                borderWidth: 1,
-              },
-              {
-                label: "Retained",
-                data: postsByStatus().retainedPosts,
-                backgroundColor: "#FF9040",
-                borderColor: "#FFFFFF",
-                borderWidth: 1,
-              },
-              {
-                label: "Resurrected",
-                data: postsByStatus().resurrectedPosts,
-                backgroundColor: "#a855f7",
-                borderColor: "#FFFFFF",
-                borderWidth: 1,
-              },
-              {
-                label: "Expanded",
-                data: postsByStatus().expandedPosts,
-                backgroundColor: "#008EFF",
-                borderColor: "#FFFFFF",
-                borderWidth: 1,
-              },
-              {
-                label: "New",
-                data: postsByStatus().newPosts,
-                backgroundColor: "#2AD546",
-                borderColor: "#FFFFFF",
-                borderWidth: 1,
-              },
-            ],
-          }}
-        />
-      </Card>
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-4 py-4",
+          breakoutData && "sm:grid-cols-2"
+        )}
+      >
+        <Card loading={isAnyPending} className="mb-4">
+          <h2 className="text-lg font-bold mb-2">
+            Posts by {period === "week" ? "week" : "period"}
+          </h2>
+          <p className="text-gray-600 leading-5 mb-6">
+            {period === "week" ? "Week-by-week" : "Rolling 30-day"} count of
+            posts from users that are new, expanded, resurrected, retained,
+            contracted, or churned.
+          </p>
+          <Bar
+            /* @ts-expect-error */
+            options={chartOpts}
+            ref={chartRef}
+            onClick={chartClick}
+            data={{
+              labels:
+                period === "week"
+                  ? _.map(weeks, "week")
+                  : ["120", "90", "60", "30"],
+              datasets: [
+                {
+                  label: "Churned",
+                  data: _.map(
+                    postsByStatus().churnedPosts,
+                    (post) => post * -1
+                  ),
+                  backgroundColor: "#e63946",
+                  borderColor: "#FFFFFF",
+                  borderWidth: 1,
+                },
+                {
+                  label: "Contracted",
+                  data: postsByStatus().contractedPosts,
+                  backgroundColor: "#f59e0b",
+                  borderColor: "#FFFFFF",
+                  borderWidth: 1,
+                },
+                {
+                  label: "Retained",
+                  data: postsByStatus().retainedPosts,
+                  backgroundColor: "#FF9040",
+                  borderColor: "#FFFFFF",
+                  borderWidth: 1,
+                },
+                {
+                  label: "Resurrected",
+                  data: postsByStatus().resurrectedPosts,
+                  backgroundColor: "#a855f7",
+                  borderColor: "#FFFFFF",
+                  borderWidth: 1,
+                },
+                {
+                  label: "Expanded",
+                  data: postsByStatus().expandedPosts,
+                  backgroundColor: "#008EFF",
+                  borderColor: "#FFFFFF",
+                  borderWidth: 1,
+                },
+                {
+                  label: "New",
+                  data: postsByStatus().newPosts,
+                  backgroundColor: "#2AD546",
+                  borderColor: "#FFFFFF",
+                  borderWidth: 1,
+                },
+              ],
+            }}
+          />
+        </Card>
+        {breakoutData && (
+          <Card loading={isAnyPending} className="mb-4">
+            <div className="flex w-full justify-between items-start">
+              <div>
+                <h2 className="text-lg font-bold mb-2">
+                  Breakout of {breakoutLabel}
+                </h2>
+                <p className="text-gray-600 leading-5 mb-6">
+                  Leaderboard of posters in {period === "week" && "the week of"}{" "}
+                  {breakoutLabel}
+                  {period !== "week" && " days"}
+                </p>
+              </div>
+              <button className="button" onClick={() => setBreakoutData(null)}>
+                &times;
+              </button>
+            </div>
+            <table className="table-auto w-full">
+              <thead>
+                <tr>
+                  <th className="text-left py-2 pr-2">Ship</th>
+                  <th className="text-left py-2 pr-2">Current</th>
+                  <th className="text-left py-2">Previous</th>
+                  <th className="text-left py-2">Past</th>
+                </tr>
+              </thead>
+              <tbody>
+                {_.map(breakoutData, (i, key) => (
+                  <tr key={key}>
+                    {console.log(i)}
+                    <td
+                      className={cn(
+                        "py-2 pr-2",
+                        parseInt(key) & 1 ? "bg-white" : "bg-gray-50"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "font-semibold",
+                          i.isNew && "text-green-500",
+                          i.isContracted && "text-yellow-500",
+                          i.isRetained && "text-orange-500",
+                          i.isResurrected && "text-purple-500",
+                          i.isExpanded && "text-blue-500",
+                          i.isChurned && "text-red-500"
+                        )}
+                      >
+                        {i.ship}
+                      </span>
+                    </td>
+                    <td
+                      className={cn(
+                        "py-2 pr-2",
+                        parseInt(key) & 1 ? "bg-white" : "bg-gray-50"
+                      )}
+                    >
+                      {i.cur}
+                    </td>
+                    <td
+                      className={cn(
+                        "py-2",
+                        parseInt(key) & 1 ? "bg-white" : "bg-gray-50"
+                      )}
+                    >
+                      {i.prev}
+                    </td>
+                    <td
+                      className={cn(
+                        "py-2 pr-2",
+                        parseInt(key) & 1 ? "bg-white" : "bg-gray-50"
+                      )}
+                    >
+                      {i.past}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
